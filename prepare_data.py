@@ -1,15 +1,12 @@
 from pathlib import Path
 import music21 as m21
 
-
 REST = "R"
 HOLD = "H"
-START = "S"
-END = "E"
 
 
 def read_midi_to_time_series(
-    file: Path | str, rest=REST, hold=HOLD, step=0.25
+    file: Path | str, rest=REST, hold=HOLD, step=0.25, target_key=m21.pitch.Pitch("C")
 ) -> list[int | tuple | str, float]:
     """Read midi file to a fixed-step time series representation
 
@@ -20,11 +17,14 @@ def read_midi_to_time_series(
         rest: symbol for a rest
         hold: symbol for holding the previous note
         step: Step size for time series (sampling step). Fraction of quarter note. Durations smaller than step are quantized to step. Defaults to 0.25.
+        target_key: Key to transpose to. Defaults to C major / A minor.
 
     Returns:
         list of tokens (midi note numbers, rests, or holds)
     """
     song = m21.converter.parse(file)
+    if target_key is not None:
+        song = transpose_song(song, target_key=target_key)
     instruments = m21.instrument.partitionByInstrument(song).parts
     instrument = instruments[0]  # Use first instrument.
     notes = []
@@ -43,6 +43,25 @@ def read_midi_to_time_series(
         notes.append(note)
         notes.extend([hold] * (num_steps - 1))
     return notes
+
+
+def transpose_song(song: m21.stream, target_key=m21.pitch.Pitch("C")) -> m21.stream:
+    """Transpose a music21 stream to a target key
+
+    Args:
+        song: music21 stream
+        target_key: Target key. Defaults to C major / A minor.
+
+    Returns:
+        transposed song (music21 stream)
+    """
+    key = song.analyze("key")
+    if key.mode == "major":
+        return song.transpose(m21.interval.Interval(key.tonic, target_key))
+    elif key.mode == "minor":
+        return song.transpose(
+            m21.interval.Interval(key.tonic, target_key.transpose(-3))
+        )
 
 
 if __name__ == "__main__":
