@@ -8,6 +8,7 @@ music21 = "*"
 ipython = "*"
 ipykernel = "*"
 tqdm = "*"
+torch = "*"
 
 [dev-packages]
 
