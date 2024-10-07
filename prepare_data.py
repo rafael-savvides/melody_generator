@@ -122,7 +122,7 @@ if __name__ == "__main__":
     representation = "event_sequence"
 
     path_to_raw = Path("/Users/savv/datasets/maestro-v3.0.0")
-    path_to_processed = Path(f"dataset_{representation}")
+    path_to_processed = Path(f"dataset/{representation}")
     path_to_processed.mkdir(parents=True, exist_ok=True)
 
     for file in tqdm(list(path_to_raw.glob("**/*.midi"))):
