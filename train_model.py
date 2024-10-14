@@ -6,6 +6,7 @@ from torch import optim
 from prepare_data import read_event_sequence
 import numpy as np
 
+# TODO Move to json/yaml file?
 config = {
     "input_size": 3,
     "hidden_size": 64,
@@ -14,8 +15,9 @@ config = {
 }
 
 
+# TODO Move model definition to own file?
 class MelodyLSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size: int, hidden_size: int, output_size: int):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -28,15 +30,18 @@ class MelodyLSTM(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
         # Uses `seq_len * hidden_size` features to predict `output_size` targets.
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor | np.ndarray | list) -> torch.Tensor:
         """Forward pass
 
         Args:
-            x: torch tensor of shape (seq_len, input_size)
+            x: torch tensor of shape (seq_len, input_size) and dtype float32.
+            If x is a list or numpy array it is cast into a torch tensor.
 
         Returns:
             torch tensor of shape (seq_len, output_size)
         """
+        if isinstance(x, np.ndarray) or isinstance(x, list):
+            x = torch.tensor(np.atleast_2d(x), dtype=torch.float32)
         seq_len = len(x)
         # lstm's default h0 (hidden state) and c0 (cell state) are zeroes.
         lstm_out, _ = self.lstm(x)
@@ -47,15 +52,32 @@ class MelodyLSTM(nn.Module):
 
 
 def train_model(
-    model: MelodyLSTM, train_loader, loss_fn, optimizer, num_epochs=10, progress=True
+    model: MelodyLSTM,
+    train_loader,
+    loss_fn,
+    optimizer: torch.optim.optimizer.Optimizer,
+    num_epochs: int = 10,
+    progress=True,
 ):
+    """Train model
+
+    Args:
+        model: _description_
+        train_loader: _description_
+        loss_fn: _description_
+        optimizer: _description_
+        num_epochs: _description_. Defaults to 10.
+        progress: _description_. Defaults to True.
+
+    Returns:
+        model
+    """
     model.train()
     i = 0
     for epoch in range(num_epochs):
         if progress:
             print(f"Epoch {epoch}")
         for inputs, target in train_loader:
-            # TODO Cant do multiple epochs with a generator. Use custom torch Dataset. Not sure how to make it return pieces of a file with each __get__item.
             if progress and (i % 1000) == 0:
                 print(f"i={i}")
 
@@ -69,6 +91,8 @@ def train_model(
             loss.backward()
             optimizer.step()
             i = i + 1
+            # if i > 10000:
+            #     break
     return model
 
 
@@ -85,6 +109,15 @@ def scale_pitch(x: list | np.ndarray, pitch_range=128) -> np.ndarray:
         If x is a single (pitch, duration, offset) tuple, it becomes a (1, 3) array.
     """
     return np.atleast_2d(x) / np.array([pitch_range, 1.0, 1.0])
+
+
+def generate_melody(model, initial_sequence, num_notes, sequence_length):
+    melody = initial_sequence
+    for i in range(num_notes):
+        inputs = melody[-sequence_length:]
+        next_item = model(inputs)[-1]
+        melody.append(next_item)
+    return melody
 
 
 class EventSequenceDataset(torch.utils.data.Dataset):
@@ -158,4 +191,4 @@ if __name__ == "__main__":
     )
 
     model_file = f"model_{datetime.now().isoformat(timespec='seconds')}_{dataset}.pth"
-    torch.save(model.state_dict(), model_file)
+    torch.save(model.state_dict(), model_file)  # TODO Save with config?
