@@ -12,7 +12,7 @@ def train_model(
     model: MelodyLSTM,
     train_loader,
     loss_fn,
-    optimizer: torch.optim.optimizer.Optimizer,
+    optimizer: torch.optim.Optimizer,
     num_epochs: int = 10,
     progress=True,
 ):
