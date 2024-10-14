@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from pathlib import Path
 import csv
 from fractions import Fraction
@@ -109,7 +110,7 @@ class EventSequenceDataset(torch.utils.data.Dataset):
         self.files = Path(path).glob("*.txt")
         self.sequence_length = sequence_length
         self.data = []
-        for file in files:
+        for file in self.files:
             self.data.extend(read_event_sequence(file))
         # Alternative to reading in memory: read files and flatten to create a list of (file_idx, seq_idx). Then index this list in __getitem__.
         # TODO Should EOF be considered? Now the ending of one file predicts the beginning of another. Shuffling between epochs helps a bit.
@@ -160,10 +161,10 @@ if __name__ == "__main__":
 
     dataset = "event_sequence"  # 3696777 notes in 1276 files
     path_to_dataset_txt = Path(f"data/{dataset}")
-    files = path_to_dataset_txt.glob("*.txt")
-    data_loader = make_data_loader(
-        files, read_event_sequence, sequence_length=SEQUENCE_LENGTH
+    data = EventSequenceDataset(
+        path=path_to_dataset_txt, sequence_length=SEQUENCE_LENGTH
     )
+    data_loader = DataLoader(data, shuffle=True)
 
     model = MelodyLSTM(
         input_size=INPUT_SIZE, hidden_size=HIDDEN_SIZE, output_size=OUTPUT_SIZE
