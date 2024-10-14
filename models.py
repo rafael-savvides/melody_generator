@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from torch.functional import softplus, log_softmax
+from torch.nn.functional import softplus, log_softmax
 
 config = {
     "num_unique_tokens": 128 + 2,
