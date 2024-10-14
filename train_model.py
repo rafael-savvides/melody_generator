@@ -157,9 +157,30 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
         return len(self.data) - self.sequence_length
 
 
+def make_integer_encoder(
+    num_int: int = 0, non_int_tokens: list[str] = tuple()
+) -> dict[str, int]:
+    """Make integer encoder
+
+    Maps str(int) to int e.g. "22" to 22 up to `num_int` after which it encodes `non_int_tokens`.
+
+    Args:
+        num_int: Number of pitches. Defaults to 0.
+        non_int_tokens: Number of non-pitch tokens. Defaults to tuple().
+
+    Returns:
+        dict where v[token] gives a token's integer encoding.
+    """
+    vocab = {str(i): i for i in range(num_int)}
+    for token in non_int_tokens:
+        vocab[token] = len(vocab)
+    return vocab
+
+
 if __name__ == "__main__":
     from datetime import datetime
     from models import config
+    from prepare_data import REST, HOLD
 
     learning_rate = 0.1
 
@@ -180,9 +201,12 @@ if __name__ == "__main__":
         )
         loss_fn = nn.MSELoss()  # TODO Change loss to NLLLoss + MSELoss.
     elif dataset == "time_series":
+        num_pitches = 128
+        encoder = make_integer_encoder(num_pitches, non_int_tokens=[REST, HOLD])
         data = TimeSeriesDataset(
             path=path_to_dataset_txt,
             sequence_length=config["sequence_length"],
+            transform=lambda seq: [encoder[e] for e in seq],
         )
         data_loader = DataLoader(data, shuffle=True)
 
