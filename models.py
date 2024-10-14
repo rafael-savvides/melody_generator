@@ -4,7 +4,7 @@ import numpy as np
 from torch.nn.functional import softplus, log_softmax
 
 config = {
-    "num_unique_tokens": 128 + 2,
+    "num_unique_tokens": 128 + 4,
     "embedding_size": 8,
     "hidden_size": 8,
     "sequence_length": 8,
@@ -45,9 +45,9 @@ class MelodyLSTM(nn.Module):
         Returns:
             torch tensor of shape (seq_len, output_size)
         """
-        if isinstance(note_seq, np.ndarray) or isinstance(note_seq, list):
-            note_seq = torch.tensor(np.atleast_2d(note_seq), dtype=torch.float32)
         seq_len = len(note_seq)
+        if isinstance(note_seq, np.ndarray) or isinstance(note_seq, list):
+            note_seq = torch.tensor(note_seq, dtype=torch.int)
         embeds = self.embedding(note_seq)
         lstm_out, _ = self.lstm(embeds)
         out = self.fc(lstm_out.view(seq_len, -1))

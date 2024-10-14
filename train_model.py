@@ -37,14 +37,14 @@ def train_model(
         for inputs, target in train_loader:
             if progress and (i % 1000) == 0:
                 print(f"i={i}")
-
             model.zero_grad()
 
-            inputs = torch.tensor(inputs, dtype=torch.float32)
-            target = torch.tensor(target, dtype=torch.float32)
+            inputs = torch.tensor(inputs)
+            target = torch.tensor(target)
 
             output = model(inputs)
-            loss = loss_fn(output[-1], target)
+            # TODO Should the loss contain just the last item or the whole seq_len sequence?
+            loss = loss_fn(output[-1].reshape(1, -1), target)
             loss.backward()
             optimizer.step()
             i = i + 1
@@ -130,7 +130,7 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
             transform: A function applied to both sequence and next_item.
         """
         self.path = path
-        self.files = Path(path).glob("*.txt")
+        self.files = list(Path(path).glob("*.txt"))
         self.sequence_length = sequence_length
         self.transform = transform
         self.data = []
@@ -147,10 +147,11 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
             sequence: list of `self.sequence_length` tokens
             next_item: next token to predict
         """
-        sequence = self.data[idx : idx + self.sequence_length]
-        next_item = self.data[idx + self.sequence_length]
+        idx1 = idx + self.sequence_length
+        sequence = self.data[idx:idx1]
+        next_item = self.data[idx1]
         if self.transform is not None:
-            sequence, next_item = self.transform(sequence), self.transform(next_item)
+            sequence, next_item = self.transform(sequence), self.transform([next_item])
         return sequence, next_item
 
     def __len__(self):
@@ -202,7 +203,9 @@ if __name__ == "__main__":
         loss_fn = nn.MSELoss()  # TODO Change loss to NLLLoss + MSELoss.
     elif dataset == "time_series":
         num_pitches = 128
-        encoder = make_integer_encoder(num_pitches, non_int_tokens=[REST, HOLD])
+        encoder = make_integer_encoder(
+            num_pitches, non_int_tokens=[REST, HOLD, "E", "S"]
+        )
         data = TimeSeriesDataset(
             path=path_to_dataset_txt,
             sequence_length=config["sequence_length"],
