@@ -3,9 +3,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from pathlib import Path
 from torch import optim
-from prepare_data import read_event_sequence
+from prepare_data import read_event_sequence, read_time_series
 import numpy as np
-from models import MelodyLSTM
+from models import MelodyLSTM, MelodyLSTMPlus
 
 
 def train_model(
@@ -118,27 +118,81 @@ class EventSequenceDataset(torch.utils.data.Dataset):
         return len(self.data) - self.sequence_length
 
 
+class TimeSeriesDataset(torch.utils.data.Dataset):
+    def __init__(
+        self, path: str | Path, sequence_length: int, transform: callable = None
+    ):
+        """Time series dataset of notes
+
+        Args:
+            path: Directory of files with space-delimited tokens of midi pitches or a rest symbol or a hold symbol.
+            sequence_length: Sequence length to use as input for predicting the next item in the sequence.
+            transform: A function applied to both sequence and next_item.
+        """
+        self.path = path
+        self.files = Path(path).glob("*.txt")
+        self.sequence_length = sequence_length
+        self.transform = transform
+        self.data = []
+        for file in self.files:
+            self.data.extend(read_time_series(file))
+
+    def __getitem__(self, idx):
+        """Get item
+
+        Args:
+            idx: Index.
+
+        Returns:
+            sequence: list of `self.sequence_length` tokens
+            next_item: next token to predict
+        """
+        sequence = self.data[idx : idx + self.sequence_length]
+        next_item = self.data[idx + self.sequence_length]
+        if self.transform is not None:
+            sequence, next_item = self.transform(sequence), self.transform(next_item)
+        return sequence, next_item
+
+    def __len__(self):
+        return len(self.data) - self.sequence_length
+
+
 if __name__ == "__main__":
     from datetime import datetime
     from models import config
 
     learning_rate = 0.1
 
-    dataset = "event_sequence"  # 3696777 notes in 1276 files
+    dataset = "time_series"
     path_to_dataset_txt = Path(f"data/{dataset}")
-    data = EventSequenceDataset(
-        path=path_to_dataset_txt,
-        sequence_length=config["sequence_length"],
-        transform=scale_pitch,
-    )
-    data_loader = DataLoader(data, shuffle=True)
+    if dataset == "event_sequence":
+        data = EventSequenceDataset(
+            path=path_to_dataset_txt,
+            sequence_length=config["sequence_length"],
+            transform=scale_pitch,
+        )
+        data_loader = DataLoader(data, shuffle=True)
 
-    model = MelodyLSTM(
-        input_size=config["input_size"],
-        hidden_size=config["hidden_size"],
-        output_size=config["output_size"],
-    )
-    loss_fn = nn.MSELoss()
+        model = MelodyLSTMPlus(
+            pitch_range=config["num_unique_tokens"] - 2,
+            embedding_size=config["embedding_size"],
+            hidden_size=config["hidden_size"],
+        )
+        loss_fn = nn.MSELoss()  # TODO Change loss to NLLLoss + MSELoss.
+    elif dataset == "time_series":
+        data = TimeSeriesDataset(
+            path=path_to_dataset_txt,
+            sequence_length=config["sequence_length"],
+        )
+        data_loader = DataLoader(data, shuffle=True)
+
+        model = MelodyLSTM(
+            num_unique_tokens=config["num_unique_tokens"],
+            embedding_size=config["embedding_size"],
+            hidden_size=config["hidden_size"],
+        )
+        loss_fn = nn.NLLLoss()
+
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     train_model(
         model=model,
@@ -148,5 +202,6 @@ if __name__ == "__main__":
         num_epochs=1,
     )
 
-    model_file = f"model_{datetime.now().isoformat(timespec='seconds')}_{dataset}.pth"
+    timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
+    model_file = f"model_{dataset}_{timestamp}.pth"
     torch.save(model.state_dict(), model_file)  # TODO Save with config?
