@@ -68,15 +68,6 @@ def scale_pitch(x: list | np.ndarray, pitch_range=128) -> np.ndarray:
     return np.atleast_2d(x) / np.array([pitch_range, 1.0, 1.0])
 
 
-def generate_melody(model, initial_sequence, num_notes, sequence_length):
-    melody = initial_sequence
-    for i in range(num_notes):
-        inputs = melody[-sequence_length:]
-        next_item = model(inputs)[-1]
-        melody.append(next_item)
-    return melody
-
-
 class EventSequenceDataset(torch.utils.data.Dataset):
     def __init__(
         self, path: str | Path, sequence_length: int, transform: callable = None
