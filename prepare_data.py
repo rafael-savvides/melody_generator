@@ -164,14 +164,16 @@ if __name__ == "__main__":
 
     representation = "event_sequence"
 
+    # 3696777 notes in 1276 files
     path_to_raw = Path("/Users/savv/datasets/maestro-v3.0.0")
     path_to_processed = Path(f"dataset/{representation}")
     path_to_processed.mkdir(parents=True, exist_ok=True)
 
-    for file in tqdm(list(path_to_raw.glob("**/*.midi"))):
-        if representation == "time_series":
+    if representation == "time_series":
+        for file in tqdm(list(path_to_raw.glob("**/*.midi"))):
             sequence = read_midi_to_time_series(file)
             write_time_series(sequence, path_to_processed / (file.name + ".txt"))
-        elif representation == "event_sequence":
+    elif representation == "event_sequence":
+        for file in tqdm(list(path_to_raw.glob("**/*.midi"))):
             sequence = read_midi_to_event_sequence(file)
             write_event_sequence(sequence, path_to_processed / (file.name + ".txt"))
