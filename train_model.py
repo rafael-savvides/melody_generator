@@ -6,6 +6,13 @@ import csv
 from fractions import Fraction
 from torch import optim
 
+config = {
+    "input_size": 3,
+    "hidden_size": 64,
+    "output_size": 3,
+    "sequence_length": 16,
+}
+
 
 class MelodyLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
@@ -48,7 +55,7 @@ def train_model(
             print(f"Epoch {epoch}")
         for inputs, target in train_loader:
             # TODO Cant do multiple epochs with a generator. Use custom torch Dataset. Not sure how to make it return pieces of a file with each __get__item.
-            if progress and (i % 100) == 0:
+            if progress and (i % 1000) == 0:
                 print(f"i={i}")
 
             model.zero_grad()
@@ -156,22 +163,23 @@ def read_event_sequence(file: str | Path) -> list:
 if __name__ == "__main__":
     from datetime import datetime
 
-    INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE, SEQUENCE_LENGTH = 3, 64, 3, 16
     learning_rate = 0.1
 
     dataset = "event_sequence"  # 3696777 notes in 1276 files
     path_to_dataset_txt = Path(f"data/{dataset}")
     data = EventSequenceDataset(
-        path=path_to_dataset_txt, sequence_length=SEQUENCE_LENGTH
+        path=path_to_dataset_txt, sequence_length=config["sequence_length"]
     )
     data_loader = DataLoader(data, shuffle=True)
 
     model = MelodyLSTM(
-        input_size=INPUT_SIZE, hidden_size=HIDDEN_SIZE, output_size=OUTPUT_SIZE
+        input_size=config["input_size"],
+        hidden_size=config["hidden_size"],
+        output_size=config["output_size"],
     )
     loss_fn = nn.MSELoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
-    model_ = train_model(
+    train_model(
         model=model,
         train_loader=data_loader,
         loss_fn=loss_fn,
@@ -179,5 +187,5 @@ if __name__ == "__main__":
         num_epochs=1,
     )
 
-    model_file = f"model_{datetime.now().isoformat(timespec='seconds')}_{dataset}.pkl"
-    torch.save(model_, model_file)
+    model_file = f"model_{datetime.now().isoformat(timespec='seconds')}_{dataset}.pth"
+    torch.save(model.state_dict(), model_file)
