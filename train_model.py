@@ -185,6 +185,9 @@ if __name__ == "__main__":
 
     learning_rate = 0.1
 
+    path_to_models = Path("models")
+    path_to_models.mkdir(parents=True, exist_ok=True)
+
     dataset = "time_series"
     path_to_dataset_txt = Path(f"data/{dataset}")
     if dataset == "event_sequence":
@@ -230,5 +233,5 @@ if __name__ == "__main__":
     )
 
     timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    model_file = f"model_{dataset}_{timestamp}.pth"
+    model_file = path_to_models / f"model_{dataset}_{timestamp}.pth"
     torch.save(model.state_dict(), model_file)  # TODO Save with config?
