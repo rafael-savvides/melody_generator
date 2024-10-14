@@ -5,50 +5,7 @@ from pathlib import Path
 from torch import optim
 from prepare_data import read_event_sequence
 import numpy as np
-
-# TODO Move to json/yaml file?
-config = {
-    "input_size": 3,
-    "hidden_size": 64,
-    "output_size": 3,
-    "sequence_length": 16,
-}
-
-
-# TODO Move model definition to own file?
-class MelodyLSTM(nn.Module):
-    def __init__(self, input_size: int, hidden_size: int, output_size: int):
-        super().__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.num_layers = 1
-
-        # (seq_len, input_size) -> (seq_len, hidden_size)
-        self.lstm = nn.LSTM(input_size, hidden_size)
-        # (seq_len, hidden_size) -> (seq_len, output_size)
-        self.fc = nn.Linear(hidden_size, output_size)
-        # Uses `seq_len * hidden_size` features to predict `output_size` targets.
-
-    def forward(self, x: torch.Tensor | np.ndarray | list) -> torch.Tensor:
-        """Forward pass
-
-        Args:
-            x: torch tensor of shape (seq_len, input_size) and dtype float32.
-            If x is a list or numpy array it is cast into a torch tensor.
-
-        Returns:
-            torch tensor of shape (seq_len, output_size)
-        """
-        if isinstance(x, np.ndarray) or isinstance(x, list):
-            x = torch.tensor(np.atleast_2d(x), dtype=torch.float32)
-        seq_len = len(x)
-        # lstm's default h0 (hidden state) and c0 (cell state) are zeroes.
-        lstm_out, _ = self.lstm(x)
-        out = self.fc(lstm_out.view(seq_len, -1))
-        # TODO One-hot encode pitches. Or use nn.Embedding?
-        # TODO Enforce positive pitch, duration and offset (e.g. exp or softplus?)
-        return out
+from models import MelodyLSTM
 
 
 def train_model(
@@ -163,6 +120,7 @@ class EventSequenceDataset(torch.utils.data.Dataset):
 
 if __name__ == "__main__":
     from datetime import datetime
+    from models import config
 
     learning_rate = 0.1
 
