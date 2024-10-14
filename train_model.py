@@ -32,7 +32,7 @@ class MelodyLSTM(nn.Module):
         # lstm's default h0 (hidden state) and c0 (cell state) are zeroes.
         lstm_out, _ = self.lstm(x)
         out = self.fc(lstm_out.view(len(x), -1))
-        # TODO One-hot encode pitches.
+        # TODO One-hot encode pitches. Or use nn.Embedding?
         # TODO Enforce positive pitch, duration and offset (e.g. exp or softplus?)
         return out
 
@@ -64,6 +64,15 @@ def train_model(
 
 
 def scale_pitch(x, pitch_range=128):
+    """Scale pitch
+
+    Args:
+        x: Tuple of (pitch, duration, offset)
+        pitch_range: Maximum pitch. Defaults to 128.
+
+    Returns:
+        x with its first element divided by pitch_range
+    """
     return x / torch.tensor([pitch_range, 1.0, 1.0])
 
 
@@ -86,6 +95,41 @@ def make_data_loader(files: list[str | Path], read_fn: callable, sequence_length
             inputs = sequence[i : i + sequence_length]
             output = sequence[i + sequence_length]
             yield inputs, output
+
+
+class EventSequenceDataset(torch.utils.data.Dataset):
+    def __init__(self, path: str | Path, sequence_length: int):
+        """Event sequence dataset
+
+        Args:
+            path: Directory of files with comma-delimited tuples of midi pitch,duration,offset e.g. 36,0.25,0. Each line is an event.
+            sequence_length: Sequence length to use as input for predicting the next item in the sequence.
+        """
+        self.path = path
+        self.files = Path(path).glob("*.txt")
+        self.sequence_length = sequence_length
+        self.data = []
+        for file in files:
+            self.data.extend(read_event_sequence(file))
+        # Alternative to reading in memory: read files and flatten to create a list of (file_idx, seq_idx). Then index this list in __getitem__.
+        # TODO Should EOF be considered? Now the ending of one file predicts the beginning of another. Shuffling between epochs helps a bit.
+
+    def __getitem__(self, idx):
+        """Get item
+
+        Args:
+            idx: Index.
+
+        Returns:
+            sequence: list of `self.sequence_length` tokens
+            next_item: next token to predict
+        """
+        sequence = self.data[idx : idx + self.sequence_length]
+        next_item = self.data[idx + self.sequence_length]
+        return sequence, next_item
+
+    def __len__(self):
+        return len(self.data) - self.sequence_length
 
 
 def read_time_series(file: str | Path) -> list:
