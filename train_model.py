@@ -2,9 +2,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from pathlib import Path
-import csv
-from fractions import Fraction
 from torch import optim
+from prepare_data import read_event_sequence
 
 config = {
     "input_size": 3,
@@ -84,27 +83,6 @@ def scale_pitch(x, pitch_range=128):
     return x / torch.tensor([pitch_range, 1.0, 1.0])
 
 
-def make_data_loader(files: list[str | Path], read_fn: callable, sequence_length: int):
-    """Make lazy data loader for sequence data
-
-    Args:
-        files: list of files containing sequences
-        read_fn: function that reads a file into a list
-        sequence_length: Length of input sequence to use as context.
-
-    Yields:
-        inputs: list of `sequence_length` tokens
-        output: next token to predict
-    """
-    for file in files:
-        sequence = read_fn(file)
-        # TODO Handle case where len(sequence) < sequence length?
-        for i in range(len(sequence) - sequence_length):
-            inputs = sequence[i : i + sequence_length]
-            output = sequence[i + sequence_length]
-            yield inputs, output
-
-
 class EventSequenceDataset(torch.utils.data.Dataset):
     def __init__(self, path: str | Path, sequence_length: int):
         """Event sequence dataset
@@ -138,26 +116,6 @@ class EventSequenceDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.data) - self.sequence_length
-
-
-def read_time_series(file: str | Path) -> list:
-    """Read txt file containing space-delimited sequences of pitch numbers or rest tokens or hold tokens"""
-    with open(file) as f:
-        return f.read().split(" ")
-
-
-def read_event_sequence(file: str | Path) -> list:
-    """Read txt file containing newline-delimited sequences of (pitch, duration, offset)"""
-    with open(file) as f:
-        data = []
-        for row in csv.reader(f):
-            pitch, duration, offset = row
-            if duration.find("/"):
-                duration = Fraction(duration)
-            if offset.find("/"):
-                offset = Fraction(offset)
-            data.append((int(pitch), float(duration), float(offset)))
-    return data
 
 
 if __name__ == "__main__":

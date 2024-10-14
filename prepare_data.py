@@ -1,5 +1,7 @@
 from pathlib import Path
 import music21 as m21
+import csv
+from fractions import Fraction
 
 REST = "R"
 HOLD = "H"
@@ -114,6 +116,47 @@ def write_event_sequence(sequence, file):
         for item in sequence:
             f.write(",".join(str(e) for e in item))
             f.write("\n")
+
+
+def read_time_series(file: str | Path) -> list:
+    """Read txt file containing space-delimited sequences of pitch numbers or rest tokens or hold tokens"""
+    with open(file) as f:
+        return f.read().split(" ")
+
+
+def read_event_sequence(file: str | Path) -> list:
+    """Read txt file containing newline-delimited sequences of (pitch, duration, offset)"""
+    with open(file) as f:
+        data = []
+        for row in csv.reader(f):
+            pitch, duration, offset = row
+            if duration.find("/"):
+                duration = Fraction(duration)
+            if offset.find("/"):
+                offset = Fraction(offset)
+            data.append((int(pitch), float(duration), float(offset)))
+    return data
+
+
+def make_data_loader(files: list[str | Path], read_fn: callable, sequence_length: int):
+    """Make lazy data loader for sequence data
+
+    Args:
+        files: list of files containing sequences
+        read_fn: function that reads a file into a list
+        sequence_length: Length of input sequence to use as context.
+
+    Yields:
+        inputs: list of `sequence_length` tokens
+        output: next token to predict
+    """
+    for file in files:
+        sequence = read_fn(file)
+        # TODO Handle case where len(sequence) < sequence length?
+        for i in range(len(sequence) - sequence_length):
+            inputs = sequence[i : i + sequence_length]
+            output = sequence[i + sequence_length]
+            yield inputs, output
 
 
 if __name__ == "__main__":
