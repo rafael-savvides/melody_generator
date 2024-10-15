@@ -225,4 +225,11 @@ if __name__ == "__main__":
 
     timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
     model_file = path_to_models / f"model_{dataset}_{timestamp}.pth"
-    torch.save(model.state_dict(), model_file)  # TODO Save with config?
+    torch.save(
+        {
+            "state_dict": model.state_dict(),
+            "config": config,
+            "timestamp": timestamp,
+        },
+        model_file,
+    )

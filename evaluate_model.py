@@ -15,19 +15,20 @@ def generate_melody(model, initial_sequence, num_notes, sequence_length):
 
 
 if __name__ == "__main__":
-    from models import config
-
     MODEL_FILE = os.getenv("MODEL_FILE", None)
     if MODEL_FILE is None:
-        MODEL_FILE = list(Path("models").glob("*.*"))[0]
+        # Most recently modified file in models/.
+        MODEL_FILE = max(Path("models").glob("*.*"), key=lambda f: f.stat().st_mtime)
 
+    model_dict = torch.load(MODEL_FILE)  # state_dict and config
+    config, state_dict = model_dict["config"], model_dict["state_dict"]
     if MODEL_FILE.name.find("time_series"):
         model = MelodyLSTM(
             num_unique_tokens=config["num_unique_tokens"],
             embedding_size=config["embedding_size"],
             hidden_size=config["hidden_size"],
         )
-        model.load_state_dict(torch.load(MODEL_FILE))
+        model.load_state_dict(state_dict)
         model.eval()
         example_input = [36, 129, 129, 66, 130]
         scores = model(example_input)[-1]
