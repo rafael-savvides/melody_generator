@@ -4,12 +4,17 @@ import csv
 from fractions import Fraction
 
 NUM_PITCHES = 128
+STEP_SIZE = 0.25
 REST = "R"
 HOLD = "H"
 
 
 def read_midi_to_time_series(
-    file: Path | str, rest=REST, hold=HOLD, step=0.25, target_key=m21.pitch.Pitch("C")
+    file: Path | str,
+    rest=REST,
+    hold=HOLD,
+    step=STEP_SIZE,
+    target_key=m21.pitch.Pitch("C"),
 ) -> list[int | tuple | str, float]:
     """Read midi file to a fixed-step time series representation
 
@@ -185,7 +190,7 @@ encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=[REST, HOLD, "E", "
 if __name__ == "__main__":
     from tqdm import tqdm
 
-    representation = "event_sequence"
+    representation = "time_series"
 
     # 3696777 notes in 1276 files
     path_to_raw = Path("/Users/savv/datasets/maestro-v3.0.0")
