@@ -155,7 +155,8 @@ if __name__ == "__main__":
     from models import config
     from prepare_data import REST, HOLD
 
-    learning_rate = 0.1
+    learning_rate = 0.01
+    num_epochs = 10
 
     path_to_models = Path("models")
     path_to_models.mkdir(parents=True, exist_ok=True)
@@ -197,7 +198,7 @@ if __name__ == "__main__":
         train_loader=data_loader,
         loss_fn=loss_fn,
         optimizer=optimizer,
-        num_epochs=1,
+        num_epochs=num_epochs,
     )
 
     timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
