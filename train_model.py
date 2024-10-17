@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from pathlib import Path
 from torch import optim
-from prepare_data import read_event_sequence, read_time_series
+from prepare_data import read_event_sequence, read_time_series, encoding
 import numpy as np
 from models import MelodyLSTM, MelodyLSTMPlus
 
@@ -150,26 +150,6 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
         return len(self.data) - self.sequence_length
 
 
-def make_integer_encoding(
-    num_int: int = 0, non_int_tokens: list[str] = tuple()
-) -> dict[str, int]:
-    """Make integer encoder
-
-    Maps str(int) to int e.g. "22" to 22 up to `num_int` after which it encodes `non_int_tokens`.
-
-    Args:
-        num_int: Number of pitches. Defaults to 0.
-        non_int_tokens: Number of non-pitch tokens. Defaults to tuple().
-
-    Returns:
-        dict where v[token] gives a token's integer encoding.
-    """
-    encoding = {str(i): i for i in range(num_int)}
-    for token in non_int_tokens:
-        encoding[token] = len(encoding)
-    return encoding
-
-
 if __name__ == "__main__":
     from datetime import datetime
     from models import config
@@ -197,11 +177,6 @@ if __name__ == "__main__":
         )
         loss_fn = nn.MSELoss()  # TODO Change loss to NLLLoss + MSELoss.
     elif dataset == "time_series":
-        num_pitches = 128
-        # TODO should the integer encoding be somehow included with the model?
-        encoding = make_integer_encoding(
-            num_pitches, non_int_tokens=[REST, HOLD, "E", "S"]
-        )
         data = TimeSeriesDataset(
             path=path_to_dataset_txt,
             sequence_length=config["sequence_length"],
@@ -231,6 +206,7 @@ if __name__ == "__main__":
         {
             "state_dict": model.state_dict(),
             "config": config,
+            "encoding": encoding,
             "timestamp": timestamp,
         },
         model_file,

@@ -3,6 +3,7 @@ import music21 as m21
 import csv
 from fractions import Fraction
 
+NUM_PITCHES = 128
 REST = "R"
 HOLD = "H"
 
@@ -158,6 +159,28 @@ def make_data_loader(files: list[str | Path], read_fn: callable, sequence_length
             output = sequence[i + sequence_length]
             yield inputs, output
 
+
+def make_integer_encoding(
+    num_int: int = 0, non_int_tokens: list[str] = tuple()
+) -> dict[str, int]:
+    """Make integer encoder
+
+    Maps str(int) to int e.g. "22" to 22 up to `num_int` after which it encodes `non_int_tokens`.
+
+    Args:
+        num_int: Number of pitches. Defaults to 0.
+        non_int_tokens: Number of non-pitch tokens. Defaults to tuple().
+
+    Returns:
+        dict where v[token] gives a token's integer encoding.
+    """
+    encoding = {str(i): i for i in range(num_int)}
+    for token in non_int_tokens:
+        encoding[token] = len(encoding)
+    return encoding
+
+
+encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=[REST, HOLD, "E", "S"])
 
 if __name__ == "__main__":
     from tqdm import tqdm
