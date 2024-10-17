@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     # 3696777 notes in 1276 files
     path_to_raw = Path("/Users/savv/datasets/maestro-v3.0.0")
-    path_to_processed = Path(f"dataset/{representation}")
+    path_to_processed = Path(f"data/{representation}")
     path_to_processed.mkdir(parents=True, exist_ok=True)
 
     if representation == "time_series":
