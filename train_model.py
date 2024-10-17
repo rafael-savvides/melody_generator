@@ -15,6 +15,7 @@ def train_model(
     optimizer: torch.optim.Optimizer,
     num_epochs: int = 10,
     progress=True,
+    early_stop=False,
 ):
     """Train model
 
@@ -48,8 +49,8 @@ def train_model(
             loss.backward()
             optimizer.step()
             i = i + 1
-            # if i > 10000:
-            #     break
+            if early_stop and i > 10000:
+                break
     return model
 
 
