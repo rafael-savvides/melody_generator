@@ -15,7 +15,7 @@ def train_model(
     optimizer: torch.optim.Optimizer,
     num_epochs: int = 10,
     progress=True,
-    early_stop=False,
+    debug=False,
 ):
     """Train model
 
@@ -49,7 +49,7 @@ def train_model(
             loss.backward()
             optimizer.step()
             i = i + 1
-            if early_stop and i > 10000:
+            if debug and i > 10000:
                 break
     return model
 
@@ -156,7 +156,8 @@ if __name__ == "__main__":
     from prepare_data import REST, HOLD
 
     learning_rate = 0.01
-    num_epochs = 10
+    num_epochs = 1
+    debug = False
 
     path_to_models = Path("models")
     path_to_models.mkdir(parents=True, exist_ok=True)
@@ -199,6 +200,7 @@ if __name__ == "__main__":
         loss_fn=loss_fn,
         optimizer=optimizer,
         num_epochs=num_epochs,
+        debug=debug,
     )
 
     timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
