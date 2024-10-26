@@ -50,7 +50,7 @@ def train(
 
         loss_va = validate_epoch(model, validation_loader)
         if progress:
-            print(f"loss_va = {loss_va}")
+            print(f"loss_va = {loss_va:.4f}")
         if writer is not None:
             writer.add_scalar("Loss/Train_epoch", loss_tr, epoch)
             writer.add_scalar("Loss/Validation_epoch", loss_va, epoch)
@@ -284,7 +284,6 @@ if __name__ == "__main__":
         writer=writer,
         num_epochs=num_epochs,
     )
-    # TODO Add tensorboard.
     # TODO Run parallel jobs or gpu? It already uses 4/8 M2 cores.
 
     model_file = path_to_models / f"{model_name}.pth"
