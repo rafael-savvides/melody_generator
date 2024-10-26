@@ -1,56 +1,96 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 from torch import optim
 from prepare_data import read_event_sequence, read_time_series, encoding
 import numpy as np
 from models import MelodyLSTM, MelodyLSTMPlus
 
+# from torch.utils.tensorboard import SummaryWriter
 
-def train_model(
+
+def train(
     model: MelodyLSTM,
-    train_loader,
-    loss_fn,
+    train_loader: DataLoader,
+    validation_loader: DataLoader,
+    loss_fn: callable,
     optimizer: torch.optim.Optimizer,
-    num_epochs: int = 10,
-    progress=True,
-    debug=False,
+    num_epochs: int = 1,
+    writer=None,
+    progress: bool = True,
 ):
-    """Train model
+    """Train MelodyLSTM model
 
     Args:
-        model: _description_
+        model: MelodyLSTM model.
         train_loader: _description_
+        validation_loader: _description_
         loss_fn: _description_
         optimizer: _description_
-        num_epochs: _description_. Defaults to 10.
+        num_epochs: _description_. Defaults to 1.
         progress: _description_. Defaults to True.
 
     Returns:
         model
     """
+    # TODO save intermediate models
     model.train()
-    i = 0
-    for epoch in range(num_epochs):
+    for epoch in range(1, num_epochs + 1):
         if progress:
             print(f"Epoch {epoch}")
-        for inputs, target in train_loader:
-            if progress and (i % 1000) == 0:
-                print(f"i={i}")
-            model.zero_grad()
+        train_epoch(
+            model=model,
+            train_loader=train_loader,
+            loss_fn=loss_fn,
+            optimizer=optimizer,
+            progress=progress,
+        )
 
+        loss_va = validate_epoch(model, validation_loader)
+        if progress:
+            print(f"loss_va = {loss_va}")
+    return model
+
+
+def train_epoch(
+    model: MelodyLSTM,
+    train_loader: DataLoader,
+    loss_fn: callable,
+    optimizer: torch.optim.Optimizer,
+    progress: bool = True,
+):
+    loss_running = 0
+    model.train()
+    for i, (inputs, target) in enumerate(train_loader, start=1):
+        model.zero_grad()
+
+        # TODO Make it work with batches.
+        inputs = torch.tensor(inputs)
+        target = torch.tensor(target)
+
+        output = model(inputs)
+        loss = loss_fn(output[-1].reshape(1, -1), target)
+        loss_running += loss.detach().numpy().item()
+        if progress and (i % 1000) == 0:
+            print(f"i={i}. " f"loss = {loss_running / i:.4E}. ")
+        loss.backward()
+        optimizer.step()
+    return loss_running / i
+
+
+def validate_epoch(model: MelodyLSTM, validation_loader: DataLoader):
+    model.eval()
+    loss_running = 0
+    with torch.no_grad():
+        for i, (inputs, target) in enumerate(validation_loader, start=1):
+            # TODO Make it work with batches.
             inputs = torch.tensor(inputs)
             target = torch.tensor(target)
-
             output = model(inputs)
             loss = loss_fn(output[-1].reshape(1, -1), target)
-            loss.backward()
-            optimizer.step()
-            i = i + 1
-            if debug and i > 10000:
-                break
-    return model
+            loss_running += loss.item()
+    return loss_running / i
 
 
 def scale_pitch(x: list | np.ndarray, pitch_range=128) -> np.ndarray:
@@ -159,19 +199,18 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
 if __name__ == "__main__":
     from datetime import datetime
     from models import config
-    from prepare_data import REST, HOLD
 
     learning_rate = 0.01
-    num_epochs = 1
-    debug = False
+    num_epochs = 10
+    size = 5  # Number of files to use in the data folder.
+    data_name = "time_series"
 
     path_to_models = Path("models")
     path_to_models.mkdir(parents=True, exist_ok=True)
 
     # TODO Include raw data path (maestro) as config param. Current `dataset` param is representation/processed.
-    dataset = "time_series"
-    path_to_dataset_txt = Path(f"data/{dataset}")
-    if dataset == "event_sequence":
+    path_to_dataset_txt = Path(f"data/{data_name}")
+    if data_name == "event_sequence":
         data = EventSequenceDataset(
             path=path_to_dataset_txt,
             sequence_length=config["sequence_length"],
@@ -186,13 +225,25 @@ if __name__ == "__main__":
         )
         # TODO Change loss to NLLLoss + MSELoss. Can use ignore_index.
         loss_fn = nn.MSELoss()
-    elif dataset == "time_series":
+    elif data_name == "time_series":
         data = TimeSeriesDataset(
             path=path_to_dataset_txt,
             sequence_length=config["sequence_length"],
             transform=lambda seq: [encoding[e] for e in seq],
+            size=size,
         )
-        data_loader = DataLoader(data, shuffle=True)
+        seed_split = 42
+        pct_tr = 0.8
+        generator = torch.Generator().manual_seed(seed_split)
+        data_tr, data_va = random_split(data, (pct_tr, 1 - pct_tr), generator=generator)
+        # TODO use batch_size=16.
+        train_loader = DataLoader(data_tr, batch_size=1, shuffle=True)
+        validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
+        print(
+            f"Data: {len(data)} sequences from {len(data.files)} files. "
+            f"Sequence length = {data.sequence_length}. "
+            f"Batch size = {train_loader.batch_size}. "
+        )
 
         model = MelodyLSTM(
             num_unique_tokens=config["num_unique_tokens"],
@@ -201,19 +252,24 @@ if __name__ == "__main__":
         )
         loss_fn = nn.NLLLoss()  # Input: log probabilities
 
+    print(
+        f"Training model... \n"
+        f"{str(config)} \n"
+        f"learning_rate={learning_rate}, num_epochs={num_epochs}"
+    )
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
-    train_model(
+    train(
         model=model,
-        train_loader=data_loader,
+        train_loader=train_loader,
+        validation_loader=validation_loader,
         loss_fn=loss_fn,
         optimizer=optimizer,
         num_epochs=num_epochs,
-        debug=debug,
     )
     # TODO Add tensorboard.
     # TODO Run parallel jobs or gpu? It already uses 4/8 M2 cores.
     timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    model_file = path_to_models / f"model_{dataset}_{timestamp}.pth"
+    model_file = path_to_models / f"model_{data_name}_{timestamp}.pth"
     torch.save(
         {
             "state_dict": model.state_dict(),
