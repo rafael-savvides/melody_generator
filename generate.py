@@ -22,7 +22,7 @@ def generate_melody(
     melody = list(initial_sequence)
     for i in range(num_notes):
         inputs = melody[-sequence_length:]
-        scores = np.exp(model(inputs)[-1].detach().numpy())
+        scores = np.exp(model(inputs)[-1].detach().numpy())  # exp(log(softmax(.)))
         next_item = sample_with_temperature(scores, t=temperature)
         melody.append(next_item)
     return melody
@@ -100,7 +100,8 @@ if __name__ == "__main__":
 
     STEP_DURATION = 0.25
     NUM_STEPS = 300
-    TEMPERATURE = 1
+    TEMPERATURE = 0.9
+    # TODO Check why in midi this sequence is incorrect.
     sequence = ["41", "H", "H", "H", "41", "40", "H", "H"]
     print(
         f"Generating {NUM_STEPS} steps of duration {STEP_DURATION}*quarter_note with initial sequence '{' '.join(sequence)}'"

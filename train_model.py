@@ -44,7 +44,6 @@ def train_model(
             target = torch.tensor(target)
 
             output = model(inputs)
-            # TODO Should the loss contain just the last item or the whole seq_len sequence?
             loss = loss_fn(output[-1].reshape(1, -1), target)
             loss.backward()
             optimizer.step()
@@ -112,7 +111,11 @@ class EventSequenceDataset(torch.utils.data.Dataset):
 
 class TimeSeriesDataset(torch.utils.data.Dataset):
     def __init__(
-        self, path: str | Path, sequence_length: int, transform: callable = None
+        self,
+        path: str | Path,
+        sequence_length: int,
+        transform: callable = None,
+        size: int = None,
     ):
         """Time series dataset of notes
 
@@ -120,9 +123,12 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
             path: Directory of files with space-delimited tokens of midi pitches or a rest symbol or a hold symbol.
             sequence_length: Sequence length to use as input for predicting the next item in the sequence.
             transform: A function applied to both sequence and next_item.
+            size: Number of files to use. If None, uses all files.
         """
         self.path = path
         self.files = list(Path(path).glob("*.txt"))
+        if size is not None:
+            self.files = np.random.choice(self.files, size=size, replace=False)
         self.sequence_length = sequence_length
         self.transform = transform
         self.data = []
@@ -162,6 +168,7 @@ if __name__ == "__main__":
     path_to_models = Path("models")
     path_to_models.mkdir(parents=True, exist_ok=True)
 
+    # TODO Include raw data path (maestro) as config param. Current `dataset` param is representation/processed.
     dataset = "time_series"
     path_to_dataset_txt = Path(f"data/{dataset}")
     if dataset == "event_sequence":
@@ -177,7 +184,8 @@ if __name__ == "__main__":
             embedding_size=config["embedding_size"],
             hidden_size=config["hidden_size"],
         )
-        loss_fn = nn.MSELoss()  # TODO Change loss to NLLLoss + MSELoss.
+        # TODO Change loss to NLLLoss + MSELoss. Can use ignore_index.
+        loss_fn = nn.MSELoss()
     elif dataset == "time_series":
         data = TimeSeriesDataset(
             path=path_to_dataset_txt,
@@ -191,7 +199,7 @@ if __name__ == "__main__":
             embedding_size=config["embedding_size"],
             hidden_size=config["hidden_size"],
         )
-        loss_fn = nn.NLLLoss()
+        loss_fn = nn.NLLLoss()  # Input: log probabilities
 
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     train_model(
@@ -202,7 +210,8 @@ if __name__ == "__main__":
         num_epochs=num_epochs,
         debug=debug,
     )
-
+    # TODO Add tensorboard.
+    # TODO Run parallel jobs or gpu? It already uses 4/8 M2 cores.
     timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
     model_file = path_to_models / f"model_{dataset}_{timestamp}.pth"
     torch.save(

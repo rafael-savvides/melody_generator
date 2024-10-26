@@ -7,6 +7,7 @@ NUM_PITCHES = 128
 STEP_SIZE = 0.25
 REST = "R"
 HOLD = "H"
+# TODO Add end token?
 
 
 def read_midi_to_time_series(
@@ -83,6 +84,7 @@ def read_midi_to_event_sequence(
         elif isinstance(event, m21.chord.Chord):
             # note = tuple(n.pitch.midi for n in event.notes) # Save all notes as tuple.
             pitch = event.notes[0].pitch.midi  # Save first note in chord.
+            # TODO Using first/bassiest note creates large pitch leaps.
         elif isinstance(event, m21.note.Rest):
             offset += duration
             continue
