@@ -6,8 +6,7 @@ from torch import optim
 from prepare_data import read_event_sequence, read_time_series, encoding
 import numpy as np
 from models import MelodyLSTM, MelodyLSTMPlus
-
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
 def train(
@@ -17,7 +16,7 @@ def train(
     loss_fn: callable,
     optimizer: torch.optim.Optimizer,
     num_epochs: int = 1,
-    writer=None,
+    writer: SummaryWriter = None,
     progress: bool = True,
 ):
     """Train MelodyLSTM model
@@ -39,17 +38,22 @@ def train(
     for epoch in range(1, num_epochs + 1):
         if progress:
             print(f"Epoch {epoch}")
-        train_epoch(
+        loss_tr = train_epoch(
             model=model,
             train_loader=train_loader,
             loss_fn=loss_fn,
             optimizer=optimizer,
+            writer=writer,
+            epoch=epoch,
             progress=progress,
         )
 
         loss_va = validate_epoch(model, validation_loader)
         if progress:
             print(f"loss_va = {loss_va}")
+        if writer is not None:
+            writer.add_scalar("Loss/Train_epoch", loss_tr, epoch)
+            writer.add_scalar("Loss/Validation_epoch", loss_va, epoch)
     return model
 
 
@@ -58,9 +62,11 @@ def train_epoch(
     train_loader: DataLoader,
     loss_fn: callable,
     optimizer: torch.optim.Optimizer,
+    writer: SummaryWriter = None,
+    epoch: int = 1,
     progress: bool = True,
 ):
-    loss_running = 0
+    loss_sum = 0
     model.train()
     for i, (inputs, target) in enumerate(train_loader, start=1):
         model.zero_grad()
@@ -71,12 +77,18 @@ def train_epoch(
 
         output = model(inputs)
         loss = loss_fn(output[-1].reshape(1, -1), target)
-        loss_running += loss.detach().numpy().item()
-        if progress and (i % 1000) == 0:
-            print(f"i={i}. " f"loss = {loss_running / i:.4E}. ")
+        loss_sum += loss.detach().numpy().item()
+        loss_avg = loss_sum / i
+        if (i % 1000) == 0:
+            if progress:
+                print(f"i={i}. " f"loss = {loss_avg:.4E}. ")
+            if writer is not None:
+                writer.add_scalar(
+                    "Loss/Train", loss_avg, (epoch - 1) * len(train_loader) + i
+                )
         loss.backward()
         optimizer.step()
-    return loss_running / i
+    return loss_avg
 
 
 def validate_epoch(model: MelodyLSTM, validation_loader: DataLoader):
@@ -203,13 +215,17 @@ if __name__ == "__main__":
     learning_rate = 0.01
     num_epochs = 10
     size = 5  # Number of files to use in the data folder.
+
     data_name = "time_series"
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    model_name = f"melodylstm_{data_name}_{timestamp}"
 
     path_to_models = Path("models")
     path_to_models.mkdir(parents=True, exist_ok=True)
 
-    # TODO Include raw data path (maestro) as config param. Current `dataset` param is representation/processed.
     path_to_dataset_txt = Path(f"data/{data_name}")
+    # TODO Include raw data path (maestro) as config param. Current `dataset` param is representation/processed.
+
     if data_name == "event_sequence":
         data = EventSequenceDataset(
             path=path_to_dataset_txt,
@@ -257,6 +273,7 @@ if __name__ == "__main__":
         f"{str(config)} \n"
         f"learning_rate={learning_rate}, num_epochs={num_epochs}"
     )
+    writer = SummaryWriter(f"runs/{model_name}")
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     train(
         model=model,
@@ -264,12 +281,13 @@ if __name__ == "__main__":
         validation_loader=validation_loader,
         loss_fn=loss_fn,
         optimizer=optimizer,
+        writer=writer,
         num_epochs=num_epochs,
     )
     # TODO Add tensorboard.
     # TODO Run parallel jobs or gpu? It already uses 4/8 M2 cores.
-    timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
-    model_file = path_to_models / f"model_{data_name}_{timestamp}.pth"
+
+    model_file = path_to_models / f"{model_name}.pth"
     torch.save(
         {
             "state_dict": model.state_dict(),
@@ -279,3 +297,4 @@ if __name__ == "__main__":
         },
         model_file,
     )
+    print(f"Saved to {model_file}.")

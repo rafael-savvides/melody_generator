@@ -9,6 +9,7 @@ ipython = "*"
 ipykernel = "*"
 tqdm = "*"
 torch = "*"
+tensorboard = "*"
 
 [dev-packages]
 
