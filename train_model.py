@@ -213,8 +213,9 @@ if __name__ == "__main__":
     from models import config
 
     learning_rate = 0.01
-    num_epochs = 10
-    size = 5  # Number of files to use in the data folder.
+    num_epochs = 20
+    size = 10  # Number of files to use in the data folder.
+    # TODO Write params to tensorboard.
 
     data_name = "time_series"
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
