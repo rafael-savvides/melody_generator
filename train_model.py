@@ -8,6 +8,11 @@ import numpy as np
 from models import MelodyLSTM, MelodyLSTMPlus
 from torch.utils.tensorboard import SummaryWriter
 
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
 
 def train(
     model: MelodyLSTM,
@@ -16,6 +21,7 @@ def train(
     loss_fn: callable,
     optimizer: torch.optim.Optimizer,
     num_epochs: int = 1,
+    device=torch.device("cpu"),
     writer: SummaryWriter = None,
     progress: bool = True,
 ):
@@ -44,11 +50,12 @@ def train(
             loss_fn=loss_fn,
             optimizer=optimizer,
             writer=writer,
+            device=device,
             epoch=epoch,
             progress=progress,
         )
 
-        loss_va = validate_epoch(model, validation_loader)
+        loss_va = validate_epoch(model, validation_loader, device=device)
         if progress:
             print(f"loss_va = {loss_va:.4f}")
         if writer is not None:
@@ -63,6 +70,7 @@ def train_epoch(
     loss_fn: callable,
     optimizer: torch.optim.Optimizer,
     writer: SummaryWriter = None,
+    device=torch.device("cpu"),
     epoch: int = 1,
     progress: bool = True,
 ):
@@ -72,12 +80,12 @@ def train_epoch(
         model.zero_grad()
 
         # TODO Make it work with batches.
-        inputs = torch.tensor(inputs)
-        target = torch.tensor(target)
+        inputs = torch.tensor(inputs).to(device)
+        target = torch.tensor(target).to(device)
 
         output = model(inputs)
         loss = loss_fn(output[-1].reshape(1, -1), target)
-        loss_sum += loss.detach().numpy().item()
+        loss_sum += loss.detach().item()
         loss_avg = loss_sum / i
         if (i % 1000) == 0:
             if progress:
@@ -91,14 +99,18 @@ def train_epoch(
     return loss_avg
 
 
-def validate_epoch(model: MelodyLSTM, validation_loader: DataLoader):
+def validate_epoch(
+    model: MelodyLSTM,
+    validation_loader: DataLoader,
+    device=torch.device("cpu"),
+):
     model.eval()
     loss_running = 0
     with torch.no_grad():
         for i, (inputs, target) in enumerate(validation_loader, start=1):
             # TODO Make it work with batches.
-            inputs = torch.tensor(inputs)
-            target = torch.tensor(target)
+            inputs = torch.tensor(inputs).to(device)
+            target = torch.tensor(target).to(device)
             output = model(inputs)
             loss = loss_fn(output[-1].reshape(1, -1), target)
             loss_running += loss.item()
@@ -227,6 +239,7 @@ if __name__ == "__main__":
     path_to_dataset_txt = Path(f"data/{data_name}")
     # TODO Include raw data path (maestro) as config param. Current `dataset` param is representation/processed.
 
+    print(model_name)
     if data_name == "event_sequence":
         data = EventSequenceDataset(
             path=path_to_dataset_txt,
@@ -257,7 +270,8 @@ if __name__ == "__main__":
         train_loader = DataLoader(data_tr, batch_size=1, shuffle=True)
         validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
         print(
-            f"Data: {len(data)} sequences from {len(data.files)} files. "
+            f"Data: {len(data)} sequences from {len(data.files)} files "
+            f"(tr+va = {len(data_tr)}+{len(data_va)}). "
             f"Sequence length = {data.sequence_length}. "
             f"Batch size = {train_loader.batch_size}. "
         )
@@ -266,7 +280,7 @@ if __name__ == "__main__":
             num_unique_tokens=config["num_unique_tokens"],
             embedding_size=config["embedding_size"],
             hidden_size=config["hidden_size"],
-        )
+        ).to(device)
         loss_fn = nn.NLLLoss()  # Input: log probabilities
 
     print(
@@ -284,8 +298,8 @@ if __name__ == "__main__":
         optimizer=optimizer,
         writer=writer,
         num_epochs=num_epochs,
+        device=device,
     )
-    # TODO Run parallel jobs or gpu? It already uses 4/8 M2 cores.
 
     model_file = path_to_models / f"{model_name}.pth"
     torch.save(
