@@ -79,12 +79,12 @@ def train_epoch(
     for i, (inputs, target) in enumerate(train_loader, start=1):
         model.zero_grad()
 
-        # TODO Make it work with batches.
-        inputs = torch.tensor(inputs).to(device)
-        target = torch.tensor(target).to(device)
+        # TODO Make batch size into first arg?
+        inputs = torch.stack(inputs).to(device)  # (sequence_length, batch_size)
+        target = torch.stack(target).to(device)  # (1, batch_size)
 
         output = model(inputs)
-        loss = loss_fn(output[-1].reshape(1, -1), target)
+        loss = loss_fn(output[-1], target.reshape(-1))
         loss_sum += loss.detach().item()
         loss_avg = loss_sum / i
         if (i % 1000) == 0:
@@ -108,11 +108,10 @@ def validate_epoch(
     loss_running = 0
     with torch.no_grad():
         for i, (inputs, target) in enumerate(validation_loader, start=1):
-            # TODO Make it work with batches.
             inputs = torch.tensor(inputs).to(device)
             target = torch.tensor(target).to(device)
-            output = model(inputs)
-            loss = loss_fn(output[-1].reshape(1, -1), target)
+            output = model(inputs[:, None])  # (seq_len, batch_size, num_unique_tokens)
+            loss = loss_fn(output[-1], target)
             loss_running += loss.item()
     return loss_running / i
 
@@ -266,8 +265,7 @@ if __name__ == "__main__":
         pct_tr = 0.8
         generator = torch.Generator().manual_seed(seed_split)
         data_tr, data_va = random_split(data, (pct_tr, 1 - pct_tr), generator=generator)
-        # TODO use batch_size=16.
-        train_loader = DataLoader(data_tr, batch_size=1, shuffle=True)
+        train_loader = DataLoader(data_tr, batch_size=16, shuffle=True)
         validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
         print(
             f"Data: {len(data)} sequences from {len(data.files)} files "

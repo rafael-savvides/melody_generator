@@ -28,11 +28,11 @@ class MelodyLSTM(nn.Module):
         self.hidden_size = hidden_size
 
         # The embedding is required because the pitch space is too sparse.
-        # (seq_len, 1) -> (seq_len, embedding_size)
+        # (seq_len, batch_size) -> (seq_len, batch_size, embedding_size)
         self.embedding = nn.Embedding(num_unique_tokens, embedding_size)
-        # (seq_len, embedding_size) -> (seq_len, hidden_size)
+        # (seq_len, batch_size, embedding_size) -> (seq_len, batch_size, hidden_size)
         self.lstm = nn.LSTM(embedding_size, hidden_size)
-        # (seq_len, hidden_size) -> (seq_len, input_size)
+        # (seq_len, batch_size, hidden_size) -> (seq_len, batch_size, num_unique_tokens)
         self.fc = nn.Linear(hidden_size, num_unique_tokens)
 
     def forward(self, note_seq: torch.Tensor | np.ndarray | list) -> torch.Tensor:
@@ -48,11 +48,12 @@ class MelodyLSTM(nn.Module):
         seq_len = len(note_seq)
         if isinstance(note_seq, np.ndarray) or isinstance(note_seq, list):
             note_seq = torch.tensor(note_seq, dtype=torch.int)
+        note_seq = torch.atleast_2d(note_seq)
         embeds = self.embedding(note_seq)
         lstm_out, _ = self.lstm(embeds)
-        out = self.fc(lstm_out.view(seq_len, -1))
-        scores = log_softmax(out, dim=1)  # Log-probabilities.
-        return scores
+        out = self.fc(lstm_out)
+        scores = log_softmax(out, dim=2)  # Log-probabilities.
+        return scores  # (seq_len, batch_size, num_unique_tokens)
 
 
 class MelodyLSTMPlus(nn.Module):
