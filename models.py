@@ -5,8 +5,8 @@ from torch.nn.functional import softplus, log_softmax
 
 config = {
     "num_unique_tokens": 128 + 2,
-    "embedding_size": 32,
-    "hidden_size": 32,
+    "embedding_size": 128,
+    "hidden_size": 128,
     "sequence_length": 64,
 }
 
