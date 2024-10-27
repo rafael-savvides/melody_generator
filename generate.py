@@ -11,13 +11,26 @@ decoding = {v: k for k, v in encoding.items()}
 
 
 def generate_melody(
-    model,
-    initial_sequence,
-    num_notes,
-    sequence_length,
-    temperature=1.0,
-    random_seed=None,
-):
+    model: MelodyLSTM,
+    initial_sequence: list[str],
+    num_notes: int,
+    sequence_length: int,
+    temperature: float = 1.0,
+    random_seed: int = None,
+) -> list[str]:
+    """Generate a melody
+
+    Args:
+        model: A MelodyLSTM model.
+        initial_sequence: A list of note tokens to start the melody.
+        num_notes: Number of tokens to generate.
+        sequence_length: The number of tokens to use as context in the model.
+        temperature: Temperature parameter for sampling. Defaults to 1.0.
+        random_seed: Random seed. Defaults to None.
+
+    Returns:
+        a melody that starts with `initial_sequence` and continues for `num_notes` tokens
+    """
     np.random.seed(random_seed)
     melody = list(initial_sequence)
     for i in range(num_notes):
@@ -28,7 +41,7 @@ def generate_melody(
     return melody
 
 
-def sample_with_temperature(scores: np.ndarray, t: float = 1.0):
+def sample_with_temperature(scores: np.ndarray, t: float = 1.0) -> int:
     """Sample with temperature
 
     Sample from a discrete probability distribution with some randomness, given by a temperature.
@@ -81,7 +94,8 @@ def time_series_to_midi(
     return stream
 
 
-def load_model(model_file):
+def load_model(model_file) -> tuple[MelodyLSTM, dict]:
+    # TODO Should this be a class method in MelodyLSTM?
     model_dict = torch.load(model_file, weights_only=False)
     config, state_dict = model_dict["config"], model_dict["state_dict"]
 
@@ -98,6 +112,8 @@ def load_model(model_file):
 if __name__ == "__main__":
     from datetime import datetime
 
+    # TODO Add cmd args
+
     MODEL_FILE = os.getenv("MODEL_FILE", None)
     if MODEL_FILE is None:
         # Most recently modified file in models/.
@@ -110,7 +126,7 @@ if __name__ == "__main__":
 
     STEP_DURATION = 0.25
     NUM_STEPS = 300
-    TEMPERATURE = 0.9
+    TEMPERATURE = 1
     # TODO Check why in midi this sequence is incorrect.
     sequence = ["41", "H", "H", "H", "41", "40", "H", "H"]
     print(

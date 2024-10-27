@@ -54,6 +54,7 @@ class MelodyLSTM(nn.Module):
         lstm_out, _ = self.lstm(embeds)
         out = self.fc(lstm_out)
         scores = log_softmax(out, dim=2)  # Log-probabilities.
+        # TODO Check order of dims. Is batch_size first? Esp. when inputs is a list.
         return scores  # (seq_len, batch_size, num_unique_tokens)
 
 
