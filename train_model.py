@@ -88,12 +88,12 @@ def train_epoch(
         loss = loss_fn(output[-1], target.reshape(-1))
         loss_sum += loss.detach().item()
         loss_avg = loss_sum / batch
-        if (batch % progress_step) == 0:
+        if batch == 1 or (batch % progress_step) == 0:
             if progress:
-                print(f"i={batch}. " f"loss = {loss_avg:.4E}. ")
+                print(f"batch {batch}. " f"loss = {loss_avg:.4E}. ")
             if writer is not None:
                 batch_size = inputs.shape[1]
-                step = (epoch - 1) * len(train_loader) + batch * batch_size
+                step = (epoch - 1) * len(train_loader.dataset) + batch * batch_size
                 writer.add_scalar("Loss/Train", loss_avg, step)
         loss.backward()
         optimizer.step()
