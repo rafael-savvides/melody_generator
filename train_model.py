@@ -21,7 +21,7 @@ def train(
     loss_fn: callable,
     optimizer: torch.optim.Optimizer,
     num_epochs: int = 1,
-    device=torch.device("cpu"),
+    device: torch.device = torch.device("cpu"),
     writer: SummaryWriter = None,
     progress: bool = True,
 ):
@@ -70,13 +70,14 @@ def train_epoch(
     loss_fn: callable,
     optimizer: torch.optim.Optimizer,
     writer: SummaryWriter = None,
-    device=torch.device("cpu"),
+    device: torch.device = torch.device("cpu"),
     epoch: int = 1,
     progress: bool = True,
 ):
     loss_sum = 0
+    progress_step = 1000  # Print and log every `progress_step` batch.
     model.train()
-    for i, (inputs, target) in enumerate(train_loader, start=1):
+    for batch, (inputs, target) in enumerate(train_loader, start=1):
         model.zero_grad()
 
         # TODO Make batch size into first arg?
@@ -86,14 +87,14 @@ def train_epoch(
         output = model(inputs)
         loss = loss_fn(output[-1], target.reshape(-1))
         loss_sum += loss.detach().item()
-        loss_avg = loss_sum / i
-        if (i % 1000) == 0:
+        loss_avg = loss_sum / batch
+        if (batch % progress_step) == 0:
             if progress:
-                print(f"i={i}. " f"loss = {loss_avg:.4E}. ")
+                print(f"i={batch}. " f"loss = {loss_avg:.4E}. ")
             if writer is not None:
-                writer.add_scalar(
-                    "Loss/Train", loss_avg, (epoch - 1) * len(train_loader) + i
-                )
+                batch_size = inputs.shape[1]
+                step = (epoch - 1) * len(train_loader) + batch * batch_size
+                writer.add_scalar("Loss/Train", loss_avg, step)
         loss.backward()
         optimizer.step()
     return loss_avg
@@ -102,7 +103,7 @@ def train_epoch(
 def validate_epoch(
     model: MelodyLSTM,
     validation_loader: DataLoader,
-    device=torch.device("cpu"),
+    device: torch.device = torch.device("cpu"),
 ):
     model.eval()
     loss_running = 0
@@ -224,7 +225,7 @@ if __name__ == "__main__":
     from models import config
 
     learning_rate = 0.01
-    num_epochs = 20
+    num_epochs = 50
     size = 10  # Number of files to use in the data folder.
     # TODO Write params to tensorboard.
 
