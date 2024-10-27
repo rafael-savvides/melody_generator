@@ -28,9 +28,19 @@ def generate_melody(
     return melody
 
 
-def sample_with_temperature(scores, t: float = 1.0):
+def sample_with_temperature(scores: np.ndarray, t: float = 1.0):
+    """Sample with temperature
+
+    Sample from a discrete probability distribution with some randomness, given by a temperature.
+
+    Args:
+        scores: Scores (like softmax) for C classes as an array of shape (C,). Scores approximate a discrete probability distribution over C classes.
+        t: Temperature. Defaults to 1.0.
+
+    Returns:
+        an integer in [0, C-1]
+    """
     prob = scores ** (1.0 / t)
-    # I assume np normalizes p to sum to 1.
     prob = prob / sum(prob)  # TODO Maybe make more numerically stable, logsumexp.
     return np.random.choice(range(len(scores)), p=prob).item()
 
