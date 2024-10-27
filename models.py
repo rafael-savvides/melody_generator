@@ -48,6 +48,7 @@ class MelodyLSTM(nn.Module):
         seq_len = len(note_seq)
         if isinstance(note_seq, np.ndarray) or isinstance(note_seq, list):
             note_seq = torch.tensor(note_seq, dtype=torch.int)
+            note_seq = note_seq.reshape(seq_len, -1)
         note_seq = torch.atleast_2d(note_seq)
         embeds = self.embedding(note_seq)
         lstm_out, _ = self.lstm(embeds)

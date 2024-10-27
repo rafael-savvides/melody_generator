@@ -23,7 +23,7 @@ def generate_melody(
     for i in range(num_notes):
         inputs = melody[-sequence_length:]
         scores = np.exp(model(inputs)[-1].detach().numpy())  # exp(log(softmax(.)))
-        next_item = sample_with_temperature(scores, t=temperature)
+        next_item = sample_with_temperature(scores.ravel(), t=temperature)
         melody.append(next_item)
     return melody
 
