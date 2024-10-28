@@ -24,7 +24,7 @@ def train(
     device: torch.device = torch.device("cpu"),
     writer: SummaryWriter = None,
     progress: bool = True,
-):
+) -> tuple[float, float]:
     """Train MelodyLSTM model
 
     Args:
@@ -37,7 +37,7 @@ def train(
         progress: _description_. Defaults to True.
 
     Returns:
-        model
+        train loss, validation loss
     """
     # TODO save intermediate models
     model.train()
@@ -61,7 +61,7 @@ def train(
         if writer is not None:
             writer.add_scalar("Loss/Train_epoch", loss_tr, epoch)
             writer.add_scalar("Loss/Validation_epoch", loss_va, epoch)
-    return model
+    return loss_tr, loss_va
 
 
 def train_epoch(
@@ -227,7 +227,6 @@ if __name__ == "__main__":
     learning_rate = 0.01
     num_epochs = 50
     size = 10  # Number of files to use in the data folder.
-    # TODO Write params to tensorboard.
 
     data_name = "time_series"
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -289,7 +288,17 @@ if __name__ == "__main__":
     )
     writer = SummaryWriter(f"runs/{model_name}")
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
-    train(
+
+    hparams = config | {
+        "lr": learning_rate,
+        "num_epochs": num_epochs,
+        "batch_size": train_loader.batch_size,
+        "num_files": size,
+        "num_sequences": len(data),
+        "data_name": data_name,
+    }
+
+    loss_tr, loss_va = train(
         model=model,
         train_loader=train_loader,
         validation_loader=validation_loader,
@@ -299,6 +308,12 @@ if __name__ == "__main__":
         num_epochs=num_epochs,
         device=device,
     )
+    with writer as w:
+        w.add_hparams(
+            hparams,
+            metric_dict={"loss_tr": loss_tr, "loss_va": loss_va},
+            run_name=f"hparams_{timestamp}",
+        )
 
     model_file = path_to_models / f"{model_name}.pth"
     torch.save(
