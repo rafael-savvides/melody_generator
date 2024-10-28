@@ -258,7 +258,7 @@ if __name__ == "__main__":
 
     learning_rate = 0.01
     num_epochs = 50
-    size = 10  # Number of files to use in the data folder.
+    size = 50  # Number of files to use in the data folder.
 
     data_name = "time_series"
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
