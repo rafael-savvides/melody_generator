@@ -95,9 +95,8 @@ def time_series_to_midi(
 
 
 def load_model(model_file) -> tuple[MelodyLSTM, dict]:
-    # TODO Should this be a class method in MelodyLSTM?
     model_dict = torch.load(model_file, weights_only=False)
-    config, state_dict = model_dict["config"], model_dict["state_dict"]
+    config, state_dict = model_dict["hparams"], model_dict["state_dict"]
 
     model = MelodyLSTM(
         num_unique_tokens=config["num_unique_tokens"],

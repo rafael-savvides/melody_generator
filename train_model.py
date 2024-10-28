@@ -23,7 +23,9 @@ def train(
     num_epochs: int = 1,
     device: torch.device = torch.device("cpu"),
     writer: SummaryWriter = None,
+    hparams: dict = None,
     progress: bool = True,
+    file: str | Path = None,
 ) -> tuple[float, float]:
     """Train MelodyLSTM model
 
@@ -35,11 +37,12 @@ def train(
         optimizer: _description_
         num_epochs: _description_. Defaults to 1.
         progress: _description_. Defaults to True.
+        file: Path in which to save model checkpoints.
+        hparams: Dictionary of hyperparameters to log with writer and save to a checkpoint.
 
     Returns:
         train loss, validation loss
     """
-    # TODO save intermediate models
     model.train()
     for epoch in range(1, num_epochs + 1):
         if progress:
@@ -56,12 +59,41 @@ def train(
         )
 
         loss_va = validate_epoch(model, validation_loader, device=device)
+        if file is not None:
+            # TODO Should every epoch be saved, or should I overwrite? If every epoch, then how to name them? _epochs=epoch? Should there be a folder with all epochs? Save only if validation loss improves?
+            save_checkpoint(
+                file=file,
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                hparams=hparams,
+            )
+            print(f"Saved checkpoint to {file}.")
         if progress:
             print(f"loss_va = {loss_va:.4f}")
         if writer is not None:
             writer.add_scalar("Loss/Train_epoch", loss_tr, epoch)
             writer.add_scalar("Loss/Validation_epoch", loss_va, epoch)
     return loss_tr, loss_va
+
+
+def save_checkpoint(file, model, optimizer, epoch, hparams):
+    torch.save(
+        {
+            "name": file,  # TODO How to name?
+            "epoch": epoch,
+            "hparams": hparams,
+            "model_state_dict": model.state_dict(),  # TODO What exactly is in state_dict?
+            "optimizer_state_dict": optimizer.state_dict(),
+        },
+        file,
+    )
+
+
+def load_checkpoint(file):
+    # TODO What to return?
+    d = torch.load(file)
+    return d
 
 
 def train_epoch(
@@ -108,13 +140,13 @@ def validate_epoch(
     model.eval()
     loss_running = 0
     with torch.no_grad():
-        for i, (inputs, target) in enumerate(validation_loader, start=1):
+        for batch, (inputs, target) in enumerate(validation_loader, start=1):
             inputs = torch.tensor(inputs).to(device)
             target = torch.tensor(target).to(device)
             output = model(inputs[:, None])  # (seq_len, batch_size, num_unique_tokens)
             loss = loss_fn(output[-1], target)
             loss_running += loss.item()
-    return loss_running / i
+    return loss_running / batch
 
 
 def scale_pitch(x: list | np.ndarray, pitch_range=128) -> np.ndarray:
@@ -234,6 +266,7 @@ if __name__ == "__main__":
 
     path_to_models = Path("models")
     path_to_models.mkdir(parents=True, exist_ok=True)
+    model_file = path_to_models / f"{model_name}.pth"
 
     path_to_dataset_txt = Path(f"data/{data_name}")
     # TODO Include raw data path (maestro) as config param. Current `dataset` param is representation/processed.
@@ -307,6 +340,8 @@ if __name__ == "__main__":
         writer=writer,
         num_epochs=num_epochs,
         device=device,
+        hparams=hparams,
+        file=model_file,
     )
     with writer as w:
         w.add_hparams(
@@ -315,7 +350,6 @@ if __name__ == "__main__":
             run_name=f"hparams_{timestamp}",
         )
 
-    model_file = path_to_models / f"{model_name}.pth"
     torch.save(
         {
             "state_dict": model.state_dict(),
