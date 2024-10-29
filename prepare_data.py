@@ -7,7 +7,7 @@ NUM_PITCHES = 128
 STEP_SIZE = 0.25
 REST = "R"
 HOLD = "H"
-# TODO Add end token?
+END = "E"
 
 
 def read_midi_to_time_series(
@@ -45,7 +45,9 @@ def read_midi_to_time_series(
         elif isinstance(event, m21.chord.Chord):
             # note = tuple(n.pitch.midi for n in event.notes) # Save all notes as tuple.
             note = event.notes[0].pitch.midi  # Save first note in chord.
+            # TODO Deal with chords differently.
         else:
+            # TODO Try using end token.
             continue
         duration = event.duration.quarterLength
         num_steps = max(1, int(duration / step))
@@ -126,7 +128,7 @@ def write_event_sequence(sequence, file):
             f.write("\n")
 
 
-def read_time_series(file: str | Path) -> list:
+def read_time_series(file: str | Path) -> list[str]:
     """Read txt file containing space-delimited sequences of pitch numbers or rest tokens or hold tokens"""
     with open(file) as f:
         return f.read().split(" ")
@@ -187,7 +189,7 @@ def make_integer_encoding(
     return encoding
 
 
-encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=[REST, HOLD, "E", "S"])
+encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=[REST, HOLD, END])
 
 if __name__ == "__main__":
     from tqdm import tqdm

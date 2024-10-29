@@ -268,9 +268,11 @@ if __name__ == "__main__":
     from datetime import datetime
     from models import config
 
+    # TODO Set seeds.
+
     learning_rate = 0.01
     num_epochs = 50
-    num_files = 1  # Number of files to use in the data folder.
+    num_files = 50  # Number of files to use in the data folder.
 
     data_name = "time_series"
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -309,9 +311,10 @@ if __name__ == "__main__":
         )
         seed_split = 42
         pct_tr = 0.8
+        batch_size = 16
         generator = torch.Generator().manual_seed(seed_split)
         data_tr, data_va = random_split(data, (pct_tr, 1 - pct_tr), generator=generator)
-        train_loader = DataLoader(data_tr, batch_size=16, shuffle=True)
+        train_loader = DataLoader(data_tr, batch_size=batch_size, shuffle=True)
         validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
         print(
             f"Data: {len(data)} sequences from {len(data.files)} files "
