@@ -221,25 +221,28 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
         path: str | Path,
         sequence_length: int,
         transform: callable = None,
-        size: int = None,
+        num_files: int = None,
     ):
         """Time series dataset of notes
 
         Args:
             path: Directory of files with space-delimited tokens of midi pitches or a rest symbol or a hold symbol.
             sequence_length: Sequence length to use as input for predicting the next item in the sequence.
-            transform: A function applied to both sequence and next_item.
-            size: Number of files to use. If None, uses all files.
+            transform: A function (list[str] -> iterable of any) applied to sequences.
+            num_files: Number of files to use from path. If None, uses all files.
         """
-        self.path = path
-        self.files = list(Path(path).glob("*.txt"))
-        if size is not None:
-            self.files = np.random.choice(self.files, size=size, replace=False)
         self.sequence_length = sequence_length
         self.transform = transform
-        self.data = []
+        self.path = path
+        self.files = list(Path(path).glob("*.txt"))
+        if num_files is not None:
+            self.files = np.random.choice(self.files, size=num_files, replace=False)
+        data = []  # list[str]
         for file in self.files:
-            self.data.extend(read_time_series(file))
+            data.extend(read_time_series(file))
+        if self.transform is not None:
+            data = self.transform(data)
+        self.data = data
 
     def __getitem__(self, idx):
         """Get item
@@ -248,15 +251,12 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
             idx: Index.
 
         Returns:
-            sequence: list of `self.sequence_length` tokens
+            sequence: iterable of `self.sequence_length` tokens (type determined by self.transform).
+            If self.transform is None, `sequence` is a list of strings.
             next_item: next token to predict
         """
         idx1 = idx + self.sequence_length
-        sequence = self.data[idx:idx1]
-        next_item = self.data[idx1]
-        if self.transform is not None:
-            sequence, next_item = self.transform(sequence), self.transform([next_item])
-        return sequence, next_item
+        return self.data[idx:idx1], self.data[idx1]
 
     def __len__(self):
         return len(self.data) - self.sequence_length
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
     learning_rate = 0.01
     num_epochs = 50
-    size = 50  # Number of files to use in the data folder.
+    num_files = 1  # Number of files to use in the data folder.
 
     data_name = "time_series"
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -279,30 +279,31 @@ if __name__ == "__main__":
     model_file = path_to_models / f"{model_name}.pth"
 
     path_to_dataset_txt = Path(f"data/{data_name}")
-    # TODO Include raw data path (maestro) as config param. Current `dataset` param is representation/processed.
+    # TODO Include raw data name (maestro) in processed data path and as a config param.
 
     print(model_name)
     if data_name == "event_sequence":
-        data = EventSequenceDataset(
-            path=path_to_dataset_txt,
-            sequence_length=config["sequence_length"],
-            transform=scale_pitch,
-        )
-        data_loader = DataLoader(data, shuffle=True)
+        raise NotImplementedError
+        # data = EventSequenceDataset(
+        #     path=path_to_dataset_txt,
+        #     sequence_length=config["sequence_length"],
+        #     transform=scale_pitch,
+        # )
+        # data_loader = DataLoader(data, shuffle=True)  # TODO Update data loader.
 
-        model = MelodyLSTMPlus(
-            pitch_range=config["num_unique_tokens"] - 2,
-            embedding_size=config["embedding_size"],
-            hidden_size=config["hidden_size"],
-        )
-        # TODO Change loss to NLLLoss + MSELoss. Can use ignore_index.
-        loss_fn = nn.MSELoss()
+        # model = MelodyLSTMPlus(
+        #     pitch_range=config["num_unique_tokens"] - 2,
+        #     embedding_size=config["embedding_size"],
+        #     hidden_size=config["hidden_size"],
+        # )
+        # # TODO Change loss to NLLLoss + MSELoss. Can use ignore_index.
+        # loss_fn = nn.MSELoss()
     elif data_name == "time_series":
         data = TimeSeriesDataset(
             path=path_to_dataset_txt,
             sequence_length=config["sequence_length"],
             transform=lambda seq: [encoding[e] for e in seq],
-            size=size,
+            num_files=num_files,
         )
         seed_split = 42
         pct_tr = 0.8
@@ -336,7 +337,7 @@ if __name__ == "__main__":
         "lr": learning_rate,
         "num_epochs": num_epochs,
         "batch_size": train_loader.batch_size,
-        "num_files": size,
+        "num_files": num_files,
         "num_sequences": len(data),
         "data_name": data_name,
     }
