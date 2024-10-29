@@ -272,23 +272,23 @@ if __name__ == "__main__":
     seed_loader = 42
     pct_tr = 0.8
     batch_size = 16
+    dataset = "maestro-v3.0.0"
+    representation = "time_series"
 
-    data_name = "time_series"
+    data_name = f"{dataset}-{representation}"
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     model_name = f"melodylstm_{data_name}_{timestamp}"
 
+    path_to_txt_data = Path(f"data/{data_name}")
     path_to_models = Path("models")
     path_to_models.mkdir(parents=True, exist_ok=True)
     model_file = path_to_models / f"{model_name}.pth"
 
-    path_to_dataset_txt = Path(f"data/{data_name}")
-    # TODO Include raw data name (maestro) in processed data path and as a config param.
-
     print(model_name)
-    if data_name == "event_sequence":
+    if representation == "event_sequence":
         raise NotImplementedError
         # data = EventSequenceDataset(
-        #     path=path_to_dataset_txt,
+        #     path=path_to_txt_data,
         #     sequence_length=config["sequence_length"],
         #     transform=scale_pitch,
         # )
@@ -301,21 +301,24 @@ if __name__ == "__main__":
         # )
         # # TODO Change loss to NLLLoss + MSELoss. Can use ignore_index.
         # loss_fn = nn.MSELoss()
-    elif data_name == "time_series":
+    elif representation == "time_series":
         data = TimeSeriesDataset(
-            path=path_to_dataset_txt,
+            path=path_to_txt_data,
             sequence_length=config["sequence_length"],
             transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
             num_files=num_files,
         )
 
-        generator_split = torch.Generator().manual_seed(seed_split)
-        generator_loader = torch.Generator().manual_seed(seed_loader)
         data_tr, data_va = random_split(
-            data, (pct_tr, 1 - pct_tr), generator=generator_split
+            data,
+            lengths=(pct_tr, 1 - pct_tr),
+            generator=torch.Generator().manual_seed(seed_split),
         )
         train_loader = DataLoader(
-            data_tr, batch_size=batch_size, shuffle=True, generator=generator_loader
+            data_tr,
+            batch_size=batch_size,
+            shuffle=True,
+            generator=torch.Generator().manual_seed(seed_loader),
         )
         validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
         print(

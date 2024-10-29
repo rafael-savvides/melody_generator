@@ -2,12 +2,45 @@ from pathlib import Path
 import music21 as m21
 import csv
 from fractions import Fraction
+from tqdm import tqdm
 
 NUM_PITCHES = 128
 STEP_SIZE = 0.25
 REST = "R"
 HOLD = "H"
 END = "E"
+
+
+def process_midis(
+    path_to_raw: Path | str,
+    path_to_processed: Path | str,
+    representation="time_series",
+    progress: bool = True,
+):
+    """Process midi files to txt files
+
+    Read midi files recursively in path_to_raw, and save them as txt files to path_to_processed.
+
+    Args:
+        path_to_raw: Directory with midi files.
+        path_to_processed: Directory to save processed txt files.
+        representation: Either "time_series" or "event_sequence". Defaults to "time_series".
+        progress: If True, show a progress bar.
+    """
+    path_to_raw, path_to_processed = Path(path_to_raw), Path(path_to_processed)
+    path_to_processed.mkdir(parents=True, exist_ok=True)
+    if representation == "time_series":
+        read_midi, write_txt = read_midi_to_time_series, write_time_series
+    elif representation == "event_sequence":
+        read_midi, write_txt = read_midi_to_event_sequence, write_event_sequence
+    else:
+        raise ValueError(f"Unknown representation ({representation}).")
+    print(
+        f"Reading .midi files recursively in {path_to_raw} and saving .txt files to {path_to_processed}."
+    )
+    for file in tqdm(list(path_to_raw.glob("**/*.midi")), disable=not progress):
+        sequence = read_midi(file)
+        write_txt(sequence, path_to_processed / (file.name + ".txt"))
 
 
 def read_midi_to_time_series(
@@ -171,20 +204,12 @@ def make_integer_encoding(
 encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=[REST, HOLD, END])
 
 if __name__ == "__main__":
-    from tqdm import tqdm
 
+    dataset = "maestro-v3.0.0"  # 3696777 notes in 1276 files
     representation = "time_series"
+    data_name = f"{dataset}-{representation}"
 
-    # 3696777 notes in 1276 files
-    path_to_raw = Path("/Users/savv/datasets/maestro-v3.0.0")
-    path_to_processed = Path(f"data/{representation}")
-    path_to_processed.mkdir(parents=True, exist_ok=True)
+    path_to_raw = Path(f"data/{dataset}")
+    path_to_processed = Path(f"data/{data_name}")
 
-    if representation == "time_series":
-        for file in tqdm(list(path_to_raw.glob("**/*.midi"))):
-            sequence = read_midi_to_time_series(file)
-            write_time_series(sequence, path_to_processed / (file.name + ".txt"))
-    elif representation == "event_sequence":
-        for file in tqdm(list(path_to_raw.glob("**/*.midi"))):
-            sequence = read_midi_to_event_sequence(file)
-            write_event_sequence(sequence, path_to_processed / (file.name + ".txt"))
+    process_midis(path_to_raw, path_to_processed, representation)
