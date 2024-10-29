@@ -60,7 +60,6 @@ def train(
 
         loss_va = validate_epoch(model, validation_loader, device=device)
         if file is not None:
-            # TODO Should every epoch be saved, or should I overwrite? If every epoch, then how to name them? _epochs=epoch? Should there be a folder with all epochs? Save only if validation loss improves?
             save_checkpoint(
                 file=file,
                 model=model,
@@ -273,6 +272,10 @@ if __name__ == "__main__":
     learning_rate = 0.01
     num_epochs = 50
     num_files = 50  # Number of files to use in the data folder.
+    seed_split = 42
+    seed_loader = 42
+    pct_tr = 0.8
+    batch_size = 16
 
     data_name = "time_series"
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -309,12 +312,15 @@ if __name__ == "__main__":
             transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
             num_files=num_files,
         )
-        seed_split = 42
-        pct_tr = 0.8
-        batch_size = 16
-        generator = torch.Generator().manual_seed(seed_split)
-        data_tr, data_va = random_split(data, (pct_tr, 1 - pct_tr), generator=generator)
-        train_loader = DataLoader(data_tr, batch_size=batch_size, shuffle=True)
+
+        generator_split = torch.Generator().manual_seed(seed_split)
+        generator_loader = torch.Generator().manual_seed(seed_loader)
+        data_tr, data_va = random_split(
+            data, (pct_tr, 1 - pct_tr), generator=generator_split
+        )
+        train_loader = DataLoader(
+            data_tr, batch_size=batch_size, shuffle=True, generator=generator_loader
+        )
         validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
         print(
             f"Data: {len(data)} sequences from {len(data.files)} files "
@@ -335,13 +341,13 @@ if __name__ == "__main__":
         f"{str(config)} \n"
         f"learning_rate={learning_rate}, num_epochs={num_epochs}"
     )
-    writer = SummaryWriter(f"runs/{model_name}")
+    writer = SummaryWriter(f"runs/{model_name}", flush_secs=30)
     optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
     hparams = config | {
         "lr": learning_rate,
         "num_epochs": num_epochs,
-        "batch_size": train_loader.batch_size,
+        "batch_size": batch_size,
         "num_files": num_files,
         "num_sequences": len(data),
         "data_name": data_name,
