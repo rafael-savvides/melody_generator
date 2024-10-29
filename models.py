@@ -27,35 +27,34 @@ class MelodyLSTM(nn.Module):
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
 
-        # The embedding is required because the pitch space is too sparse.
-        # (seq_len, batch_size) -> (seq_len, batch_size, embedding_size)
+        # The embedding is useful because the pitch space is sparse.
+        # (batch_size, seq_len) -> (batch_size, seq_len, embedding_size)
         self.embedding = nn.Embedding(num_unique_tokens, embedding_size)
-        # (seq_len, batch_size, embedding_size) -> (seq_len, batch_size, hidden_size)
-        self.lstm = nn.LSTM(embedding_size, hidden_size)
-        # (seq_len, batch_size, hidden_size) -> (seq_len, batch_size, num_unique_tokens)
+        # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, hidden_size)
+        self.lstm = nn.LSTM(embedding_size, hidden_size, batch_first=True)
+        # (batch_size, seq_len, hidden_size) -> (batch_size, seq_len, num_unique_tokens)
         self.fc = nn.Linear(hidden_size, num_unique_tokens)
 
     def forward(self, note_seq: torch.Tensor | np.ndarray | list) -> torch.Tensor:
         """Forward pass
 
         Args:
-            note_seq: torch tensor of shape (seq_len, 1) and dtype float32.
+            note_seq: torch tensor of shape (batch_size, seq_len) and dtype float32.
             If note_seq is a list or numpy array it is cast into a torch tensor.
 
         Returns:
-            torch tensor of shape (seq_len, output_size)
+            Log-probabilities as torch tensor of shape (batch_size, seq_len, num_unique_tokens)
         """
-        seq_len = len(note_seq)
         if isinstance(note_seq, np.ndarray) or isinstance(note_seq, list):
+            batch_size = len(note_seq)
             note_seq = torch.tensor(note_seq, dtype=torch.int)
-            note_seq = note_seq.reshape(seq_len, -1)
+            note_seq = note_seq.reshape(batch_size, -1)
         note_seq = torch.atleast_2d(note_seq)
         embeds = self.embedding(note_seq)
         lstm_out, _ = self.lstm(embeds)
         out = self.fc(lstm_out)
-        scores = log_softmax(out, dim=2)  # Log-probabilities.
-        # TODO Check order of dims. Is batch_size first? Esp. when inputs is a list.
-        return scores  # (seq_len, batch_size, num_unique_tokens)
+        scores = log_softmax(out, dim=2)
+        return scores
 
 
 class MelodyLSTMPlus(nn.Module):

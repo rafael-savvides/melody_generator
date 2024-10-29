@@ -113,13 +113,13 @@ def train_epoch(
     for batch, (inputs, target) in enumerate(train_loader, start=1):
         model.zero_grad()
 
-        inputs = torch.stack(inputs).to(device)  # (sequence_length, batch_size)
-        target = torch.stack(target).to(device)  # (1, batch_size)
-        output = model(inputs)  # (sequence_length, batch_size, num_unique_tokens)
+        inputs = inputs.to(device)  # (batch_size, sequence_length)
+        target = target.to(device)  # (batch_size,)
+        output = model(inputs)  # (batch_size, sequence_length, num_unique_tokens)
 
-        batch_size = inputs.shape[1]
+        batch_size = len(inputs)
         num_instances += batch_size
-        loss_batch = loss_fn(output[-1], target[-1])  # Compare last item (next token).
+        loss_batch = loss_fn(output[:, -1], target)  # Compare last item (next token).
         loss_sum += loss_batch.detach() * batch_size
         loss_avg = loss_sum / num_instances
 
@@ -148,13 +148,15 @@ def validate_epoch(
     num_instances = 0
     with torch.no_grad():
         for batch, (inputs, target) in enumerate(validation_loader, start=1):
-            inputs = torch.tensor(inputs).to(device)
-            target = torch.tensor(target).to(device)
-            output = model(inputs[:, None])  # (seq_len, batch_size, num_unique_tokens)
+            # TODO Can the loader be loaded on the device?
+            # TODO Use pin_memory in the loader.
+            inputs = inputs.to(device)
+            target = target.to(device)
+            output = model(inputs)
 
-            batch_size = inputs.shape[1]
+            batch_size, sequence_length = inputs.shape
             num_instances += batch_size
-            loss_batch = loss_fn(output[-1], target)
+            loss_batch = loss_fn(output[:, -1], target)
             loss_sum += loss_batch * batch_size
     return loss_sum.item() / num_instances
 
@@ -302,7 +304,7 @@ if __name__ == "__main__":
         data = TimeSeriesDataset(
             path=path_to_dataset_txt,
             sequence_length=config["sequence_length"],
-            transform=lambda seq: [encoding[e] for e in seq],
+            transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
             num_files=num_files,
         )
         seed_split = 42
