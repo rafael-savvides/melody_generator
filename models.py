@@ -6,7 +6,7 @@ from torch.nn.functional import softplus, log_softmax
 config = {
     "num_unique_tokens": 128 + 3,
     "embedding_size": 32,
-    "hidden_size": 1024,
+    "hidden_size": 256,
     "sequence_length": 64,
 }
 # TODO Move config to train_model to be with all hyperparams. No reason for it to be here, it could be a yaml.

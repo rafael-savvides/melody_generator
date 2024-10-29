@@ -265,7 +265,7 @@ if __name__ == "__main__":
     from datetime import datetime
     from models import config
 
-    learning_rate = 0.01
+    learning_rate = 0.08
     num_epochs = 50
     num_files = 50  # Number of files to use in the data folder.
     seed_split = 42
