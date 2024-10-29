@@ -147,8 +147,6 @@ def validate_epoch(
     num_instances = 0
     with torch.no_grad():
         for batch, (inputs, target) in enumerate(validation_loader, start=1):
-            # TODO Can the loader be loaded on the device?
-            # TODO Use pin_memory in the loader.
             inputs = inputs.to(device)
             target = target.to(device)
             output = model(inputs)
@@ -266,8 +264,6 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
 if __name__ == "__main__":
     from datetime import datetime
     from models import config
-
-    # TODO Set seeds.
 
     learning_rate = 0.01
     num_epochs = 50

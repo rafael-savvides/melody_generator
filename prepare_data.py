@@ -148,27 +148,6 @@ def read_event_sequence(file: str | Path) -> list:
     return data
 
 
-def make_data_loader(files: list[str | Path], read_fn: callable, sequence_length: int):
-    """Make lazy data loader for sequence data
-
-    Args:
-        files: list of files containing sequences
-        read_fn: function that reads a file into a list
-        sequence_length: Length of input sequence to use as context.
-
-    Yields:
-        inputs: list of `sequence_length` tokens
-        output: next token to predict
-    """
-    for file in files:
-        sequence = read_fn(file)
-        # TODO Handle case where len(sequence) < sequence length?
-        for i in range(len(sequence) - sequence_length):
-            inputs = sequence[i : i + sequence_length]
-            output = sequence[i + sequence_length]
-            yield inputs, output
-
-
 def make_integer_encoding(
     num_int: int = 0, non_int_tokens: list[str] = tuple()
 ) -> dict[str, int]:
