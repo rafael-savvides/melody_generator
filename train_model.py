@@ -107,29 +107,35 @@ def train_epoch(
     progress: bool = True,
 ):
     loss_sum = 0
+    num_instances = 0
     progress_step = 1000  # Print and log every `progress_step` batch.
     model.train()
     for batch, (inputs, target) in enumerate(train_loader, start=1):
         model.zero_grad()
 
-        # TODO Make batch size into first arg?
         inputs = torch.stack(inputs).to(device)  # (sequence_length, batch_size)
         target = torch.stack(target).to(device)  # (1, batch_size)
+        output = model(inputs)  # (sequence_length, batch_size, num_unique_tokens)
 
-        output = model(inputs)
-        loss = loss_fn(output[-1], target.reshape(-1))
-        loss_sum += loss.detach().item()
-        loss_avg = loss_sum / batch
+        batch_size = inputs.shape[1]
+        num_instances += batch_size
+        loss_batch = loss_fn(output[-1], target[-1])  # Compare last item (next token).
+        loss_sum += loss_batch.detach() * batch_size
+        loss_avg = loss_sum / num_instances
+
         if batch == 1 or (batch % progress_step) == 0:
             if progress:
-                print(f"batch {batch}. " f"loss = {loss_avg:.4E}. ")
+                print(
+                    f"batch {batch}. "
+                    f"loss_batch = {loss_batch.item():.4E}. "
+                    f"loss = {loss_avg.item():.4E}. "
+                )
             if writer is not None:
-                batch_size = inputs.shape[1]
-                step = (epoch - 1) * len(train_loader.dataset) + batch * batch_size
-                writer.add_scalar("Loss/Train", loss_avg, step)
-        loss.backward()
+                step = (epoch - 1) * len(train_loader.dataset) + num_instances
+                writer.add_scalar("Loss/Train", loss_avg.item(), step)
+        loss_batch.backward()
         optimizer.step()
-    return loss_avg
+    return loss_avg.item()
 
 
 def validate_epoch(
@@ -138,15 +144,19 @@ def validate_epoch(
     device: torch.device = torch.device("cpu"),
 ):
     model.eval()
-    loss_running = 0
+    loss_sum = 0
+    num_instances = 0
     with torch.no_grad():
         for batch, (inputs, target) in enumerate(validation_loader, start=1):
             inputs = torch.tensor(inputs).to(device)
             target = torch.tensor(target).to(device)
             output = model(inputs[:, None])  # (seq_len, batch_size, num_unique_tokens)
-            loss = loss_fn(output[-1], target)
-            loss_running += loss.item()
-    return loss_running / batch
+
+            batch_size = inputs.shape[1]
+            num_instances += batch_size
+            loss_batch = loss_fn(output[-1], target)
+            loss_sum += loss_batch * batch_size
+    return loss_sum.item() / num_instances
 
 
 def scale_pitch(x: list | np.ndarray, pitch_range=128) -> np.ndarray:
