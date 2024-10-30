@@ -6,6 +6,7 @@ from prepare_data import encoding, decoding
 import numpy as np
 import music21 as m21
 from config import TOKENS
+import argparse
 
 
 def generate_melody(
@@ -29,17 +30,22 @@ def generate_melody(
     Returns:
         a melody that starts with `initial_sequence` and continues for `num_notes` tokens
     """
-    np.random.seed(random_seed)
+    rng = np.random.default_rng(random_seed)
     melody = list(initial_sequence)
-    for i in range(num_notes):
+    for _ in range(num_notes):
         inputs = melody[-sequence_length:]
-        scores = np.exp(model(inputs)[-1].detach().numpy())  # exp(log(softmax(.)))
-        next_item = sample_with_temperature(scores.ravel(), t=temperature)
+        output = model(inputs)[-1].detach().numpy()  # log-probabilities
+        scores = np.exp(output)  # exp(log(softmax(.)))
+        next_item = sample_with_temperature(scores.ravel(), t=temperature, rng=rng)
         melody.append(next_item)
     return melody
 
 
-def sample_with_temperature(scores: np.ndarray, t: float = 1.0) -> int:
+def sample_with_temperature(
+    scores: np.ndarray,
+    t: float = 1.0,
+    rng: np.random.Generator = np.random.default_rng(seed=None),
+) -> int:
     """Sample with temperature
 
     Sample from a discrete probability distribution with some randomness, given by a temperature.
@@ -47,13 +53,14 @@ def sample_with_temperature(scores: np.ndarray, t: float = 1.0) -> int:
     Args:
         scores: Scores (like softmax) for C classes as an array of shape (C,). Scores approximate a discrete probability distribution over C classes.
         t: Temperature. Defaults to 1.0.
+        rng: Numpy's random number Generator.
 
     Returns:
         an integer in [0, C-1]
     """
     prob = scores ** (1.0 / t)
     prob = prob / sum(prob)  # TODO Maybe make more numerically stable, logsumexp.
-    return np.random.choice(range(len(scores)), p=prob).item()
+    return rng.choice(range(len(scores)), p=prob).item()
 
 
 def time_series_to_midi(
@@ -110,17 +117,55 @@ def load_model(model_file: str | Path, model_class: object) -> tuple[object, dic
     return model, hparams
 
 
+def make_argparser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-i",
+        "--initial_sequence",
+        type=str,
+        default="60",
+        help="Initial sequence as a space-delimited sequence of MIDI note numbers and rest/hold tokens. Example: '60 62 64.'. See encoding for non-number tokens.",
+    )
+    parser.add_argument(
+        "-t",
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="Temperature parameter. Higher values produce more random outcomes.",
+    )
+    parser.add_argument(
+        "-s", "--steps", type=int, default=200, help="Number of steps to generate."
+    )
+    parser.add_argument(
+        "-d",
+        "--step_duration",
+        type=float,
+        default=0.25,
+        help="Duration of each step as a fraction of a quarter note.",
+    )
+    parser.add_argument(
+        "-r",
+        "--random_seed",
+        type=int,
+        default=None,
+        help="Random seed for the generation.",
+    )
+    return parser
+
+
 if __name__ == "__main__":
     from datetime import datetime
     from config import PATH_TO_MODELS
 
-    # TODO Add cmd args
-    # TODO Check why in midi the initial sequence is incorrect.
-    INITIAL_SEQUENCE = ["41", "H", "H", "H", "41", "40", "H", "H"]
-    STEP_DURATION = 0.25
-    NUM_STEPS = 300
-    TEMPERATURE = 0.9
-    RANDOM_SEED = None
+    parser = make_argparser()
+    args = parser.parse_args()
+    # TODO Check why in midi this initial sequence is incorrect.
+    # INITIAL_SEQUENCE = "41 H H H 41 40 H H"
+    INITIAL_SEQUENCE = args.initial_sequence
+    STEP_DURATION = args.step_duration
+    STEPS = args.steps
+    TEMPERATURE = args.temperature
+    RANDOM_SEED = args.random_seed
 
     MODEL_FILE = os.getenv("MODEL_FILE", None)
     if MODEL_FILE is None:
@@ -136,12 +181,12 @@ if __name__ == "__main__":
     path_to_generated.mkdir(exist_ok=True, parents=True)
 
     print(
-        f"Generating {NUM_STEPS} steps of duration {STEP_DURATION}*quarter_note with initial sequence '{' '.join(INITIAL_SEQUENCE)}'"
+        f"Generating {STEPS} steps of duration {STEP_DURATION}*quarter_note with initial sequence '{INITIAL_SEQUENCE}'"
     )
     melody = generate_melody(
         model=model,
-        initial_sequence=[encoding[e] for e in INITIAL_SEQUENCE],
-        num_notes=NUM_STEPS,
+        initial_sequence=[encoding[e] for e in INITIAL_SEQUENCE.split(" ")],
+        num_notes=STEPS,
         sequence_length=hparams["sequence_length"],
         temperature=TEMPERATURE,
         random_seed=RANDOM_SEED,
