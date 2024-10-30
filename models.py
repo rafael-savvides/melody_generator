@@ -51,7 +51,7 @@ class MelodyLSTM(nn.Module):
         return scores
 
 
-class MelodyLSTMPlus(nn.Module):
+class MelodyLSTMEvents(nn.Module):
     def __init__(self, pitch_range: int, embedding_size: int, hidden_size: int):
         """LSTM model for melody generation
 
@@ -101,5 +101,5 @@ class MelodyLSTMPlus(nn.Module):
         duration = softplus(self.hidden2duration(lstm_out.view(seq_len, -1)))
         offset = softplus(self.hidden2offset(lstm_out.view(seq_len, -1)))
         pitch_scores = log_softmax(pitch, dim=1)  # Log-probabilities.
-        # TODO Edit loss_fn
+        # TODO Use loss: NLLLoss + MSELoss. Can use ignore_index.
         return pitch_scores, duration, offset

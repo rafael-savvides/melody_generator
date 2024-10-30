@@ -5,7 +5,7 @@ from pathlib import Path
 from torch import optim
 from prepare_data import read_event_sequence, read_time_series, encoding
 import numpy as np
-from models import MelodyLSTM, MelodyLSTMPlus
+from models import MelodyLSTM
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -38,6 +38,8 @@ def train(
     Returns:
         train loss, validation loss
     """
+    if writer is not None:
+        writer.add_hparams(hparams, metric_dict={}, run_name="hparams")
     model.train()
     for epoch in range(1, num_epochs + 1):
         if progress:
@@ -69,24 +71,6 @@ def train(
             writer.add_scalar("Loss/Train_epoch", loss_tr, epoch)
             writer.add_scalar("Loss/Validation_epoch", loss_va, epoch)
     return loss_tr, loss_va
-
-
-def save_checkpoint(file, model, optimizer, epoch, hparams):
-    torch.save(
-        {
-            "name": file,
-            "epoch": epoch,
-            "hparams": hparams,
-            "model_state_dict": model.state_dict(),  # TODO What exactly is in state_dict?
-            "optimizer_state_dict": optimizer.state_dict(),
-        },
-        file,
-    )
-
-
-def load_checkpoint(file):
-    d = torch.load(file)
-    return d
 
 
 def train_epoch(
@@ -140,7 +124,7 @@ def validate_epoch(
     loss_sum = 0
     num_instances = 0
     with torch.no_grad():
-        for batch, (inputs, target) in enumerate(validation_loader, start=1):
+        for _, (inputs, target) in enumerate(validation_loader, start=1):
             inputs = inputs.to(device)
             target = target.to(device)
             output = model(inputs)
@@ -150,6 +134,24 @@ def validate_epoch(
             loss_batch = loss_fn(output[:, -1], target)
             loss_sum += loss_batch * batch_size
     return loss_sum.item() / num_instances
+
+
+def save_checkpoint(file, model, optimizer, epoch, hparams):
+    torch.save(
+        {
+            "name": file,
+            "epoch": epoch,
+            "hparams": hparams,
+            "model_state_dict": model.state_dict(),  # TODO What exactly is in state_dict?
+            "optimizer_state_dict": optimizer.state_dict(),
+        },
+        file,
+    )
+
+
+def load_checkpoint(file):
+    d = torch.load(file)
+    return d
 
 
 def scale_pitch(x: list | np.ndarray, pitch_range=128) -> np.ndarray:
@@ -255,6 +257,71 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
         return len(self.data) - self.sequence_length
 
 
+def get_data(
+    name: str,
+    path: str | Path,
+    sequence_length: int,
+    encoding: dict = None,
+    num_files: int = None,
+) -> torch.utils.data.Dataset:
+    """Get dataset by name
+
+    Args:
+        name: Name of the dataset.
+        path: Path to the data.
+        sequence_length: Sequence length.
+        encoding: Encoding. Defaults to None.
+        num_files: Number of files to load from path. Defaults to None.
+
+    Returns:
+        torch Dataset
+    """
+    if name == "maestro-v3.0.0-time_series":
+        data = TimeSeriesDataset(
+            path=path,
+            sequence_length=sequence_length,
+            transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
+            num_files=num_files,
+        )
+    else:
+        raise ValueError(f"Unknown data_name ({data_name}).")
+    return data
+
+
+def make_data_loaders(
+    data: torch.utils.data.Dataset,
+    batch_size: int,
+    pct_tr: float,
+    seed_split: int = None,
+    seed_loader: int = None,
+) -> tuple[DataLoader, DataLoader]:
+    """Make train and validation data loaders
+
+    Args:
+        data: Torch dataset.
+        batch_size: Batch size.
+        pct_tr: Percent of data for training set.
+        seed_split: Random seed for splitting to train-validation. Defaults to None.
+        seed_loader: Random seed for train loader. Defaults to None.
+
+    Returns:
+        tuple of torch DataLoaders
+    """
+    data_tr, data_va = random_split(
+        data,
+        lengths=(pct_tr, 1 - pct_tr),
+        generator=torch.Generator().manual_seed(seed_split),
+    )
+    train_loader = DataLoader(
+        data_tr,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(seed_loader),
+    )
+    validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
+    return train_loader, validation_loader
+
+
 if __name__ == "__main__":
     from datetime import datetime
     from config import (
@@ -273,74 +340,43 @@ if __name__ == "__main__":
         PATH_TO_MODELS,
     )
 
-    dataset = "maestro-v3.0.0"
-    representation = "time_series"
+    data_name = "maestro-v3.0.0-time_series"
+    path_to_txt_data = Path(f"data/{data_name}")
 
-    data_name = f"{dataset}-{representation}"
     t_start = datetime.now()
     timestamp = t_start.strftime("%Y-%m-%dT%H-%M-%S")
     model_name = f"melodylstm_{data_name}_{timestamp}"
 
-    path_to_txt_data = Path(f"data/{data_name}")
     path_to_models = Path(PATH_TO_MODELS)
     path_to_models.mkdir(parents=True, exist_ok=True)
     model_file = path_to_models / f"{model_name}.pth"
 
-    print(model_name)
-    if representation == "event_sequence":
-        raise NotImplementedError
-        # data = EventSequenceDataset(
-        #     path=path_to_txt_data,
-        #     sequence_length=config["sequence_length"],
-        #     transform=scale_pitch,
-        # )
-        # data_loader = DataLoader(data, shuffle=True)  # TODO Update data loader.
+    data = get_data(
+        name=data_name,
+        path=path_to_txt_data,
+        sequence_length=SEQUENCE_LENGTH,
+        encoding=encoding,
+        num_files=NUM_FILES,
+    )
+    train_loader, validation_loader = make_data_loaders(
+        data,
+        batch_size=BATCH_SIZE,
+        pct_tr=PCT_TR,
+        seed_split=SEED_SPLIT,
+        seed_loader=SEED_LOADER,
+    )
 
-        # model = MelodyLSTMPlus(
-        #     pitch_range=config["num_unique_tokens"] - 2,
-        #     embedding_size=config["embedding_size"],
-        #     hidden_size=config["hidden_size"],
-        # )
-        # # TODO Change loss to NLLLoss + MSELoss. Can use ignore_index.
-        # loss_fn = nn.MSELoss()
-    elif representation == "time_series":
-        data = TimeSeriesDataset(
-            path=path_to_txt_data,
-            sequence_length=SEQUENCE_LENGTH,
-            transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
-            num_files=NUM_FILES,
-        )
-
-        data_tr, data_va = random_split(
-            data,
-            lengths=(PCT_TR, 1 - PCT_TR),
-            generator=torch.Generator().manual_seed(SEED_SPLIT),
-        )
-        train_loader = DataLoader(
-            data_tr,
-            batch_size=BATCH_SIZE,
-            shuffle=True,
-            generator=torch.Generator().manual_seed(SEED_LOADER),
-        )
-        validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
-        print(
-            f"Data: {len(data)} sequences from {len(data.files)} files "
-            f"(tr+va = {len(data_tr)}+{len(data_va)}). "
-            f"Sequence length = {data.sequence_length}. "
-            f"Batch size = {train_loader.batch_size}. "
-        )
-
-        model = MelodyLSTM(
-            num_unique_tokens=NUM_UNIQUE_TOKENS,
-            embedding_size=EMBEDDING_SIZE,
-            hidden_size=HIDDEN_SIZE,
-        ).to(
-            DEVICE
-        )  # TODO Check str device works.
-        loss_fn = nn.NLLLoss()  # Input: log probabilities
+    model = MelodyLSTM(
+        num_unique_tokens=NUM_UNIQUE_TOKENS,
+        embedding_size=EMBEDDING_SIZE,
+        hidden_size=HIDDEN_SIZE,
+    ).to(DEVICE)
+    # TODO Check str device works.
+    loss_fn = nn.NLLLoss()  # Input: log probabilities
+    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
 
     hparams = {
-        "lr": LEARNING_RATE,
+        "learning_rate": LEARNING_RATE,
         "num_epochs": NUM_EPOCHS,
         "batch_size": BATCH_SIZE,
         "num_files": NUM_FILES,
@@ -352,21 +388,23 @@ if __name__ == "__main__":
         "sequence_length": SEQUENCE_LENGTH,
         "seed_split": SEED_SPLIT,
         "seed_loader": SEED_LOADER,
-        # TODO Where to save the encoding? Maybe save path to encoding?
+        # TODO Where to save the encoding? Maybe save path to encoding? Or just save it to hparams?
     }
     # TODO Log to file.
-    print(f"Training model... \n" f"{str(hparams)} \n")
-    writer = SummaryWriter(f"runs/{model_name}", flush_secs=30)
-    writer.add_hparams(hparams, metric_dict={}, run_name="hparams")
-    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
-
+    print("Training model...")
+    print(
+        f"Model: {model_name}\n"
+        f"Data: {len(data)} sequences from {len(data.files)} files "
+        f"(tr+va = {len(train_loader.dataset)}+{len(validation_loader.dataset)}). "
+    )
+    print(f"Hyperparameters: {str(hparams)}")
     loss_tr, loss_va = train(
         model=model,
         train_loader=train_loader,
         validation_loader=validation_loader,
         loss_fn=loss_fn,
         optimizer=optimizer,
-        writer=writer,
+        writer=SummaryWriter(f"runs/{model_name}", flush_secs=30),
         num_epochs=NUM_EPOCHS,
         device=DEVICE,
         hparams=hparams,
@@ -374,4 +412,4 @@ if __name__ == "__main__":
     )
 
     t_end = datetime.now()
-    print(f"Saved to {model_file} ({t_end:%F %T}, {(t_end - t_start).seconds} sec).")
+    print(f"Done. ({t_end:%F %T}, {(t_end - t_start).seconds} sec)")
