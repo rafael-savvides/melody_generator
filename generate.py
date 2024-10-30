@@ -2,12 +2,10 @@ import os
 import torch
 from models import MelodyLSTM
 from pathlib import Path
-from prepare_data import encoding
+from prepare_data import encoding, decoding
 import numpy as np
 import music21 as m21
-from prepare_data import HOLD, REST
-
-decoding = {v: k for k, v in encoding.items()}
+from config import TOKENS
 
 
 def generate_melody(
@@ -62,8 +60,8 @@ def time_series_to_midi(
     sequence: list[str],
     step_duration: float,
     filename: str | Path = None,
-    hold_token=HOLD,
-    rest_token=REST,
+    hold_token=TOKENS["hold"],
+    rest_token=TOKENS["rest"],
 ):
     """Convert a time series melody to midi
 
@@ -94,55 +92,64 @@ def time_series_to_midi(
     return stream
 
 
-def load_model(model_file) -> tuple[MelodyLSTM, dict]:
+def load_model(model_file: str | Path, model_class: object) -> tuple[object, dict]:
     model_dict = torch.load(model_file, weights_only=False)
-    config, state_dict = model_dict["hparams"], model_dict["state_dict"]
+    try:
+        hparams, state_dict = model_dict["hparams"], model_dict["state_dict"]
+    except KeyError:
+        # Old version.
+        hparams, state_dict = model_dict["config"], model_dict["state_dict"]
 
-    model = MelodyLSTM(
-        num_unique_tokens=config["num_unique_tokens"],
-        embedding_size=config["embedding_size"],
-        hidden_size=config["hidden_size"],
+    model = model_class(
+        num_unique_tokens=hparams["num_unique_tokens"],
+        embedding_size=hparams["embedding_size"],
+        hidden_size=hparams["hidden_size"],
     )
     model.load_state_dict(state_dict)
     model.eval()
-    return model, config
+    return model, hparams
 
 
 if __name__ == "__main__":
     from datetime import datetime
+    from config import PATH_TO_MODELS
 
     # TODO Add cmd args
+    # TODO Check why in midi the initial sequence is incorrect.
+    INITIAL_SEQUENCE = ["41", "H", "H", "H", "41", "40", "H", "H"]
+    STEP_DURATION = 0.25
+    NUM_STEPS = 300
+    TEMPERATURE = 0.9
+    RANDOM_SEED = None
 
     MODEL_FILE = os.getenv("MODEL_FILE", None)
     if MODEL_FILE is None:
-        # Most recently modified file in models/.
-        MODEL_FILE = max(Path("models").glob("*.*"), key=lambda f: f.stat().st_mtime)
-    model, config = load_model(MODEL_FILE)
+        # Most recently modified .pth file in models/.
+        MODEL_FILE = max(
+            Path(PATH_TO_MODELS).glob("*.pth"),
+            key=lambda f: f.stat().st_mtime,
+        )
+    model, hparams = load_model(MODEL_FILE, MelodyLSTM)
     print(f"Loaded {MODEL_FILE}.")
 
     path_to_generated = Path("generated")
     path_to_generated.mkdir(exist_ok=True, parents=True)
 
-    STEP_DURATION = 0.25
-    NUM_STEPS = 300
-    TEMPERATURE = 1
-    # TODO Check why in midi this sequence is incorrect.
-    sequence = ["41", "H", "H", "H", "41", "40", "H", "H"]
     print(
-        f"Generating {NUM_STEPS} steps of duration {STEP_DURATION}*quarter_note with initial sequence '{' '.join(sequence)}'"
+        f"Generating {NUM_STEPS} steps of duration {STEP_DURATION}*quarter_note with initial sequence '{' '.join(INITIAL_SEQUENCE)}'"
     )
     melody = generate_melody(
         model=model,
-        initial_sequence=[encoding[e] for e in sequence],
+        initial_sequence=[encoding[e] for e in INITIAL_SEQUENCE],
         num_notes=NUM_STEPS,
-        sequence_length=config["sequence_length"],
+        sequence_length=hparams["sequence_length"],
         temperature=TEMPERATURE,
-        random_seed=None,
+        random_seed=RANDOM_SEED,
     )
     stream = time_series_to_midi(
         [decoding[e] for e in melody], step_duration=STEP_DURATION
     )
-    timestamp = datetime.now().isoformat(timespec="seconds").replace(":", "-")
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     output_file = path_to_generated / f"melody_{timestamp}.mid"
     stream.write("midi", output_file)
     print(f"Saved to {output_file}.")

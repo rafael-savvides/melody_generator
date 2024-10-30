@@ -3,12 +3,8 @@ import music21 as m21
 import csv
 from fractions import Fraction
 from tqdm import tqdm
-
-NUM_PITCHES = 128
-STEP_SIZE = 0.25
-REST = "R"
-HOLD = "H"
-END = "E"
+import json
+from config import NUM_PITCHES, STEP_SIZE, TOKENS
 
 
 def process_midis(
@@ -45,8 +41,8 @@ def process_midis(
 
 def read_midi_to_time_series(
     file: Path | str,
-    rest=REST,
-    hold=HOLD,
+    rest=TOKENS["rest"],
+    hold=TOKENS["hold"],
     step=STEP_SIZE,
     target_key=m21.pitch.Pitch("C"),
 ) -> list[int | tuple | str, float]:
@@ -201,15 +197,32 @@ def make_integer_encoding(
     return encoding
 
 
-encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=[REST, HOLD, END])
+def save_encoding(encoding, file):
+    with open(file, "w") as f:
+        json.dump(encoding, f)
+
+
+def load_encoding(file):
+    with open(file) as f:
+        encoding = json.load(f)
+    decoding = {v: k for k, v in encoding.items()}
+    return encoding, decoding
+
+
+encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=list(TOKENS.values()))
+decoding = {v: k for k, v in encoding.items()}
 
 if __name__ == "__main__":
+    from config import PATH_TO_ENCODING, PATH_TO_DATA
 
     dataset = "maestro-v3.0.0"  # 3696777 notes in 1276 files
     representation = "time_series"
     data_name = f"{dataset}-{representation}"
 
-    path_to_raw = Path(f"data/{dataset}")
-    path_to_processed = Path(f"data/{data_name}")
+    path_to_raw = Path(PATH_TO_DATA) / dataset
+    path_to_processed = Path(PATH_TO_DATA) / data_name
+    path_to_encoding = Path(PATH_TO_ENCODING)
 
+    # TODO Should the encoding be created in train_model? It is part of the model, not the data.
+    save_encoding(encoding, path_to_encoding)
     process_midis(path_to_raw, path_to_processed, representation)

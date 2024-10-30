@@ -8,11 +8,6 @@ import numpy as np
 from models import MelodyLSTM, MelodyLSTMPlus
 from torch.utils.tensorboard import SummaryWriter
 
-if torch.backends.mps.is_available():
-    device = torch.device("mps")
-else:
-    device = torch.device("cpu")
-
 
 def train(
     model: MelodyLSTM,
@@ -79,7 +74,7 @@ def train(
 def save_checkpoint(file, model, optimizer, epoch, hparams):
     torch.save(
         {
-            "name": file,  # TODO How to name?
+            "name": file,
             "epoch": epoch,
             "hparams": hparams,
             "model_state_dict": model.state_dict(),  # TODO What exactly is in state_dict?
@@ -90,7 +85,6 @@ def save_checkpoint(file, model, optimizer, epoch, hparams):
 
 
 def load_checkpoint(file):
-    # TODO What to return?
     d = torch.load(file)
     return d
 
@@ -263,15 +257,22 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
 
 if __name__ == "__main__":
     from datetime import datetime
-    from models import config
+    from config import (
+        LEARNING_RATE,
+        BATCH_SIZE,
+        NUM_EPOCHS,
+        NUM_FILES,
+        SEED_SPLIT,
+        SEED_LOADER,
+        PCT_TR,
+        SEQUENCE_LENGTH,
+        NUM_UNIQUE_TOKENS,
+        EMBEDDING_SIZE,
+        HIDDEN_SIZE,
+        DEVICE,
+        PATH_TO_MODELS,
+    )
 
-    learning_rate = 0.08
-    num_epochs = 50
-    num_files = 50  # Number of files to use in the data folder.
-    seed_split = 42
-    seed_loader = 42
-    pct_tr = 0.8
-    batch_size = 16
     dataset = "maestro-v3.0.0"
     representation = "time_series"
 
@@ -281,7 +282,7 @@ if __name__ == "__main__":
     model_name = f"melodylstm_{data_name}_{timestamp}"
 
     path_to_txt_data = Path(f"data/{data_name}")
-    path_to_models = Path("models")
+    path_to_models = Path(PATH_TO_MODELS)
     path_to_models.mkdir(parents=True, exist_ok=True)
     model_file = path_to_models / f"{model_name}.pth"
 
@@ -305,21 +306,21 @@ if __name__ == "__main__":
     elif representation == "time_series":
         data = TimeSeriesDataset(
             path=path_to_txt_data,
-            sequence_length=config["sequence_length"],
+            sequence_length=SEQUENCE_LENGTH,
             transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
-            num_files=num_files,
+            num_files=NUM_FILES,
         )
 
         data_tr, data_va = random_split(
             data,
-            lengths=(pct_tr, 1 - pct_tr),
-            generator=torch.Generator().manual_seed(seed_split),
+            lengths=(PCT_TR, 1 - PCT_TR),
+            generator=torch.Generator().manual_seed(SEED_SPLIT),
         )
         train_loader = DataLoader(
             data_tr,
-            batch_size=batch_size,
+            batch_size=BATCH_SIZE,
             shuffle=True,
-            generator=torch.Generator().manual_seed(seed_loader),
+            generator=torch.Generator().manual_seed(SEED_LOADER),
         )
         validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
         print(
@@ -330,28 +331,34 @@ if __name__ == "__main__":
         )
 
         model = MelodyLSTM(
-            num_unique_tokens=config["num_unique_tokens"],
-            embedding_size=config["embedding_size"],
-            hidden_size=config["hidden_size"],
-        ).to(device)
+            num_unique_tokens=NUM_UNIQUE_TOKENS,
+            embedding_size=EMBEDDING_SIZE,
+            hidden_size=HIDDEN_SIZE,
+        ).to(
+            DEVICE
+        )  # TODO Check str device works.
         loss_fn = nn.NLLLoss()  # Input: log probabilities
 
-    print(
-        f"Training model... \n"
-        f"{str(config)} \n"
-        f"learning_rate={learning_rate}, num_epochs={num_epochs}"
-    )
-    writer = SummaryWriter(f"runs/{model_name}", flush_secs=30)
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate)
-
-    hparams = config | {
-        "lr": learning_rate,
-        "num_epochs": num_epochs,
-        "batch_size": batch_size,
-        "num_files": num_files,
+    hparams = {
+        "lr": LEARNING_RATE,
+        "num_epochs": NUM_EPOCHS,
+        "batch_size": BATCH_SIZE,
+        "num_files": NUM_FILES,
         "num_sequences": len(data),
         "data_name": data_name,
+        "num_unique_tokens": NUM_UNIQUE_TOKENS,
+        "embedding_size": EMBEDDING_SIZE,
+        "hidden_size": HIDDEN_SIZE,
+        "sequence_length": SEQUENCE_LENGTH,
+        "seed_split": SEED_SPLIT,
+        "seed_loader": SEED_LOADER,
+        # TODO Where to save the encoding? Maybe save path to encoding?
     }
+    # TODO Log to file.
+    print(f"Training model... \n" f"{str(hparams)} \n")
+    writer = SummaryWriter(f"runs/{model_name}", flush_secs=30)
+    writer.add_hparams(hparams, metric_dict={}, run_name="hparams")
+    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
 
     loss_tr, loss_va = train(
         model=model,
@@ -360,26 +367,11 @@ if __name__ == "__main__":
         loss_fn=loss_fn,
         optimizer=optimizer,
         writer=writer,
-        num_epochs=num_epochs,
-        device=device,
+        num_epochs=NUM_EPOCHS,
+        device=DEVICE,
         hparams=hparams,
         file=model_file,
     )
-    with writer as w:
-        w.add_hparams(
-            hparams,
-            metric_dict={"loss_tr": loss_tr, "loss_va": loss_va},
-            run_name=f"hparams_{timestamp}",
-        )
 
-    torch.save(
-        {
-            "state_dict": model.state_dict(),
-            "config": config,
-            "encoding": encoding,
-            "timestamp": timestamp,
-        },
-        model_file,
-    )
     t_end = datetime.now()
     print(f"Saved to {model_file} ({t_end:%F %T}, {(t_end - t_start).seconds} sec).")
