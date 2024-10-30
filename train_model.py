@@ -276,7 +276,8 @@ if __name__ == "__main__":
     representation = "time_series"
 
     data_name = f"{dataset}-{representation}"
-    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    t_start = datetime.now()
+    timestamp = t_start.strftime("%Y-%m-%dT%H-%M-%S")
     model_name = f"melodylstm_{data_name}_{timestamp}"
 
     path_to_txt_data = Path(f"data/{data_name}")
@@ -380,4 +381,5 @@ if __name__ == "__main__":
         },
         model_file,
     )
-    print(f"Saved to {model_file}.")
+    t_end = datetime.now()
+    print(f"Saved to {model_file} ({t_end:%F %T}, {(t_end - t_start).seconds} sec).")
