@@ -67,6 +67,7 @@ def train(
             print(f"Saved checkpoint to {file}.")
         if progress:
             print(f"loss_va = {loss_va:.4f}")
+            print(f"loss_tr = {loss_tr:.4f}")
         if writer is not None:
             writer.add_scalar("Loss/Train_epoch", loss_tr, epoch)
             writer.add_scalar("Loss/Validation_epoch", loss_va, epoch)
@@ -100,6 +101,7 @@ def train_epoch(
         loss_sum += loss_batch.detach() * batch_size
         loss_avg = loss_sum / num_instances
 
+        loss_batch.backward()
         if batch == 1 or (batch % progress_step) == 0:
             if progress:
                 print(
@@ -109,8 +111,9 @@ def train_epoch(
                 )
             if writer is not None:
                 step = (epoch - 1) * len(train_loader.dataset) + num_instances
+                grad_norm = check_gradient_norm(model)
+                writer.add_scalar("Gradient Norm", grad_norm, step)
                 writer.add_scalar("Loss/Train", loss_avg.item(), step)
-        loss_batch.backward()
         optimizer.step()
     return loss_avg.item()
 
@@ -135,6 +138,20 @@ def validate_epoch(
             loss_batch = loss_fn(output[:, -1], target)
             loss_sum += loss_batch * batch_size
     return loss_sum.item() / num_instances
+
+
+def check_gradient_norm(model: nn.Module) -> float:
+    """Check the L2 norm of the gradient of the (learnable) parameters of a model"""
+    return (
+        sum(
+            [
+                param.grad.data.norm(2).item() ** 2
+                for param in model.parameters()
+                if param.grad is not None
+            ]
+        )
+        ** 0.5
+    )
 
 
 def save_checkpoint(file, model, optimizer, epoch, hparams):
