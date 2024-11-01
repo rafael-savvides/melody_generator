@@ -93,7 +93,7 @@ def train_epoch(
 
         inputs = inputs.to(device)  # (batch_size, sequence_length)
         target = target.to(device)  # (batch_size,)
-        output = model(inputs)  # (batch_size, sequence_length, num_unique_tokens)
+        output = model(inputs)  # (batch_size, sequence_length, output_size)
 
         batch_size = len(inputs)
         num_instances += batch_size
@@ -366,7 +366,7 @@ if __name__ == "__main__":
         SEED_LOADER,
         PCT_TR,
         SEQUENCE_LENGTH,
-        NUM_UNIQUE_TOKENS,
+        OUTPUT_SIZE,
         EMBEDDING_SIZE,
         HIDDEN_SIZE,
         DEVICE,
@@ -402,7 +402,7 @@ if __name__ == "__main__":
     )
 
     model = MelodyLSTM(
-        num_unique_tokens=NUM_UNIQUE_TOKENS,
+        output_size=OUTPUT_SIZE,
         embedding_size=EMBEDDING_SIZE,
         hidden_size=HIDDEN_SIZE,
     ).to(DEVICE)
@@ -419,7 +419,7 @@ if __name__ == "__main__":
         "num_epochs": NUM_EPOCHS,
         "batch_size": BATCH_SIZE,
         "num_files": NUM_FILES,
-        "num_unique_tokens": NUM_UNIQUE_TOKENS,
+        "output_size": OUTPUT_SIZE,
         "seed_split": SEED_SPLIT,
         "seed_loader": SEED_LOADER,
         "device": DEVICE,

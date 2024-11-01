@@ -111,7 +111,7 @@ def load_model(model_file: str | Path, model_class: object) -> tuple[object, dic
         hparams, state_dict = model_dict["config"], model_dict["state_dict"]
 
     model = model_class(
-        num_unique_tokens=hparams["num_unique_tokens"],
+        output_size=hparams["output_size"],
         embedding_size=hparams["embedding_size"],
         hidden_size=hparams["hidden_size"],
     )

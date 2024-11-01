@@ -24,7 +24,7 @@ if __name__ == "__main__":
     config, state_dict = model_dict["config"], model_dict["state_dict"]
     if MODEL_FILE.name.find("time_series"):
         model = MelodyLSTM(
-            num_unique_tokens=config["num_unique_tokens"],
+            output_size=config["output_size"],
             embedding_size=config["embedding_size"],
             hidden_size=config["hidden_size"],
         )

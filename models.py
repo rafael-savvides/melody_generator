@@ -6,28 +6,28 @@ from torch.nn.functional import softplus, log_softmax
 
 # TODO Add version to model. Maybe as __version__?
 class MelodyLSTM(nn.Module):
-    def __init__(self, num_unique_tokens: int, embedding_size: int, hidden_size: int):
+    def __init__(self, output_size: int, embedding_size: int, hidden_size: int):
         """LSTM model for melody generation
 
         A song is a sequence of notes. A note is represented as a pitch or rest or hold token.
 
         Args:
-            num_unique_tokens: Number of unique tokens (vocabulary size), i.e., pitch range + 2.
+            output_size: Number of unique tokens (vocabulary size), i.e., pitch range + 2.
             embedding_size: Pitch embedding dimension.
             hidden_size: Hidden LSTM dimension.
         """
         super().__init__()
-        self.num_unique_tokens = num_unique_tokens
+        self.output_size = output_size
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
 
         # The embedding is useful because the pitch space is sparse.
         # (batch_size, seq_len) -> (batch_size, seq_len, embedding_size)
-        self.embedding = nn.Embedding(num_unique_tokens, embedding_size)
+        self.embedding = nn.Embedding(output_size, embedding_size)
         # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, hidden_size)
         self.lstm = nn.LSTM(embedding_size, hidden_size, batch_first=True)
-        # (batch_size, seq_len, hidden_size) -> (batch_size, seq_len, num_unique_tokens)
-        self.fc = nn.Linear(hidden_size, num_unique_tokens)
+        # (batch_size, seq_len, hidden_size) -> (batch_size, seq_len, output_size)
+        self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, note_seq: torch.Tensor | np.ndarray | list) -> torch.Tensor:
         """Forward pass
@@ -37,7 +37,7 @@ class MelodyLSTM(nn.Module):
             If note_seq is a list or numpy array it is cast into a torch tensor.
 
         Returns:
-            Log-probabilities as torch tensor of shape (batch_size, seq_len, num_unique_tokens)
+            Log-probabilities as torch tensor of shape (batch_size, seq_len, output_size)
         """
         if isinstance(note_seq, np.ndarray) or isinstance(note_seq, list):
             batch_size = len(note_seq)
