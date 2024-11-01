@@ -102,7 +102,7 @@ def time_series_to_midi(
 def load_model(model_file: str | Path, model_class: object) -> tuple[object, dict]:
     model_dict = torch.load(model_file, weights_only=False)
     try:
-        hparams, state_dict = model_dict["hparams"], model_dict["state_dict"]
+        hparams, state_dict = model_dict["hparams"], model_dict["model_state_dict"]
     except KeyError:
         # Old version.
         hparams, state_dict = model_dict["config"], model_dict["state_dict"]
