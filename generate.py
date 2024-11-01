@@ -69,6 +69,7 @@ def time_series_to_midi(
     filename: str | Path = None,
     hold_token=TOKENS["hold"],
     rest_token=TOKENS["rest"],
+    end_token=TOKENS["end"],
 ):
     """Convert a time series melody to midi
 
@@ -89,6 +90,8 @@ def time_series_to_midi(
             length = step_duration * step
             if e == rest_token:
                 note = m21.note.Rest(quarterLength=length)
+            elif e == end_token:
+                break
             else:
                 note = m21.note.Note(pitch=int(e), quarterLength=length)
             stream.append(note)
