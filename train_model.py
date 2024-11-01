@@ -40,8 +40,8 @@ def train(
     """
     if writer is not None:
         writer.add_hparams(hparams, metric_dict={}, run_name="hparams")
-    model.train()
     for epoch in range(1, num_epochs + 1):
+        model.train()
         if progress:
             print(f"Epoch {epoch}")
         loss_tr = train_epoch(
@@ -55,7 +55,7 @@ def train(
             progress=progress,
         )
 
-        loss_va = validate_epoch(model, validation_loader, device=device)
+        loss_va = validate_epoch(model, loss_fn, validation_loader, device=device)
         if file is not None:
             save_checkpoint(
                 file=file,
@@ -82,7 +82,7 @@ def train_epoch(
     device: torch.device = torch.device("cpu"),
     epoch: int = 1,
     progress: bool = True,
-):
+) -> float:
     loss_sum = 0
     num_instances = 0
     progress_step = 1000  # Print and log every `progress_step` batch.
@@ -117,9 +117,10 @@ def train_epoch(
 
 def validate_epoch(
     model: MelodyLSTM,
+    loss_fn: callable,
     validation_loader: DataLoader,
     device: torch.device = torch.device("cpu"),
-):
+) -> float:
     model.eval()
     loss_sum = 0
     num_instances = 0
