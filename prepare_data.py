@@ -7,6 +7,21 @@ import json
 from config import NUM_PITCHES, STEP_SIZE, TOKENS
 
 
+def prepare_data(dataset: str, path_to_raw: str | Path, path_to_processed: str | Path):
+    """Process and save a dataset
+
+    Args:
+        dataset: Dataset name.
+        path_to_raw: Path from which to read raw data.
+        path_to_processed: Path in which to save processed data.
+    """
+    if dataset == "maestro-v3.0.0-time_series":
+        process_midis(path_to_raw, path_to_processed, representation="time_series")
+    elif dataset == "jsb_chorales":
+        bachs = process_jsb_chorales(path_to_raw)
+        write_time_series(bachs, file=path_to_processed)
+
+
 def process_midis(
     path_to_raw: Path | str,
     path_to_processed: Path | str,
@@ -270,20 +285,95 @@ def load_encoding(file):
     return encoding, decoding
 
 
+def process_jsb_chorales(
+    path_to_raw, rest_token=TOKENS["rest"], end_token=TOKENS["end"]
+):
+    bachs = read_jsb_chorales(path_to_raw, return_split=False)
+    bachs = [
+        make_monophonic(song, num_voices=4, end_token=end_token, rest_token=rest_token)
+        for song in bachs
+    ]
+    return bachs
+
+
+def read_jsb_chorales(
+    path, return_split=True
+) -> dict[str, list[list[list[int]]]] | list[list[int]]:
+    """Read Bach chorales dataset
+
+    Args:
+        path: path to jsb-chorales-16th.json
+        return_split: Return. Defaults to True.
+
+    Returns:
+        If return split is True:
+            dict with "train", "valid", "test", each a list of songs.
+        else:
+            list of songs ("train", "valid", "test" combined)
+    """
+    with open(path) as f:
+        data: dict[str, list[list]] = json.load(f)
+    for split, songs in data.items():
+        # The raw data has some float values, like 63.0.
+        songs = [[list(map(int, beat)) for beat in song] for song in songs]
+        data[split] = songs
+    if return_split:
+        return data
+    else:
+        return [beat for song in data.values() for beat in song]
+
+
+def make_monophonic(
+    song: list[list[int | str]],
+    num_voices=4,
+    end_token: str = None,
+    rest_token: str = None,
+) -> list[int | str]:
+    """Flatten a multi-voice song into a note sequence
+
+    Essentially a np.reshape, but with handling of different-sized elements.
+
+    Args:
+        song: A song as a list of beats, each a list of up to `num_voices` notes (int or str)
+        num_voices: Number of voices. Defaults to 4.
+        end_token: If not None, `end_token` is appended at the end of each voice. Defaults to None.
+        rest_token: If not None, `rest_token` is appended whenever a voice is missing (i.e. when len(beat) < num_voices). Defaults to None.
+
+    Returns:
+        list of notes
+    """
+    mono = []
+    for i in range(num_voices):
+        for beat in song:
+            try:
+                mono.append(beat[i])
+            except IndexError:
+                if rest_token is not None:
+                    mono.append(rest_token)
+        if end_token is not None:
+            mono.append(end_token)
+    return mono
+
+
 encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=list(TOKENS.values()))
 decoding = {v: k for k, v in encoding.items()}
 
 if __name__ == "__main__":
-    from config import PATH_TO_ENCODING, PATH_TO_DATA
+    from config import PATH_TO_ENCODING, PATH_TO_DATA, DATASETS
 
-    dataset = "maestro-v3.0.0"  # 3696777 notes in 1276 files
-    representation = "time_series"
-    data_name = f"{dataset}-{representation}"
+    dataset = "jsb_chorales"
 
-    path_to_raw = Path(PATH_TO_DATA) / dataset
-    path_to_processed = Path(PATH_TO_DATA) / data_name
-    path_to_encoding = Path(PATH_TO_ENCODING)
+    if dataset not in DATASETS:
+        raise ValueError(
+            f"Unknown dataset ({dataset}). Allowed values: {list(DATASETS)}."
+        )
+
+    prepare_data(
+        dataset=dataset,
+        path_to_raw=Path(PATH_TO_DATA) / DATASETS[dataset]["raw"],
+        path_to_processed=Path(PATH_TO_DATA) / DATASETS[dataset]["processed"],
+    )
 
     # TODO Should the encoding be created in train_model? It is part of the model, not the data.
+    path_to_encoding = Path(PATH_TO_ENCODING)
     save_encoding(encoding, path_to_encoding)
-    process_midis(path_to_raw, path_to_processed, representation)

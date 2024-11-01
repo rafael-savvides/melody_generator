@@ -211,6 +211,7 @@ class EventSequenceDataset(torch.utils.data.Dataset):
 
 
 class TimeSeriesDataset(torch.utils.data.Dataset):
+
     def __init__(
         self,
         path: str | Path,
@@ -221,17 +222,20 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
         """Time series dataset of notes
 
         Args:
-            path: Directory of files with space-delimited tokens of midi pitches or a rest symbol or a hold symbol.
+            path: Path to a text file or a directory of text files. The text file is a sequence of tokens, see :func:`read_time_series`.
             sequence_length: Sequence length to use as input for predicting the next item in the sequence.
             transform: A function (list[str] -> iterable of any) applied to sequences.
             num_files: Number of files to use from path. If None, uses all files.
         """
         self.sequence_length = sequence_length
         self.transform = transform
-        self.path = path
-        self.files = list(Path(path).glob("*.txt"))
-        if num_files is not None:
-            self.files = np.random.choice(self.files, size=num_files, replace=False)
+        self.path = Path(path)
+        if self.path.is_file():
+            self.files = [self.path]
+        else:
+            self.files = list(self.path.glob("*.txt"))
+            if num_files is not None:
+                self.files = np.random.choice(self.files, size=num_files, replace=False)
         data: list[str] = []
         for file in self.files:
             songs = read_time_series(file)
@@ -285,8 +289,14 @@ def get_data(
             transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
             num_files=num_files,
         )
+    elif name == "jsb_chorales":
+        data = TimeSeriesDataset(
+            path=path,
+            sequence_length=sequence_length,
+            transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
+        )
     else:
-        raise ValueError(f"Unknown data_name ({data_name}).")
+        raise ValueError(f"Unknown data_name ({name}).")
     return data
 
 
@@ -340,22 +350,24 @@ if __name__ == "__main__":
         HIDDEN_SIZE,
         DEVICE,
         PATH_TO_MODELS,
+        PATH_TO_DATA,
+        DATASETS,
     )
 
-    data_name = "maestro-v3.0.0-time_series"
-    path_to_txt_data = Path(f"data/{data_name}")
+    # dataset = "maestro-v3.0.0-time_series"
+    dataset = "jsb_chorales"
 
     t_start = datetime.now()
     timestamp = t_start.strftime("%Y-%m-%dT%H-%M-%S")
-    model_name = f"melodylstm_{data_name}_{timestamp}"
+    model_name = f"melodylstm_{dataset}_{timestamp}"
 
     path_to_models = Path(PATH_TO_MODELS)
     path_to_models.mkdir(parents=True, exist_ok=True)
     model_file = path_to_models / f"{model_name}.pth"
 
     data = get_data(
-        name=data_name,
-        path=path_to_txt_data,
+        name=dataset,
+        path=Path(PATH_TO_DATA) / DATASETS[dataset]["processed"],
         sequence_length=SEQUENCE_LENGTH,
         encoding=encoding,
         num_files=NUM_FILES,
@@ -373,21 +385,20 @@ if __name__ == "__main__":
         embedding_size=EMBEDDING_SIZE,
         hidden_size=HIDDEN_SIZE,
     ).to(DEVICE)
-    # TODO Check str device works.
     loss_fn = nn.NLLLoss()  # Input: log probabilities
     optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
 
     hparams = {
+        "dataset": dataset,
+        "num_sequences": len(data),
+        "embedding_size": EMBEDDING_SIZE,
+        "hidden_size": HIDDEN_SIZE,
+        "sequence_length": SEQUENCE_LENGTH,
         "learning_rate": LEARNING_RATE,
         "num_epochs": NUM_EPOCHS,
         "batch_size": BATCH_SIZE,
         "num_files": NUM_FILES,
-        "num_sequences": len(data),
-        "data_name": data_name,
         "num_unique_tokens": NUM_UNIQUE_TOKENS,
-        "embedding_size": EMBEDDING_SIZE,
-        "hidden_size": HIDDEN_SIZE,
-        "sequence_length": SEQUENCE_LENGTH,
         "seed_split": SEED_SPLIT,
         "seed_loader": SEED_LOADER,
         # TODO Where to save the encoding? Maybe save path to encoding? Or just save it to hparams?

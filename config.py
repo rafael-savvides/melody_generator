@@ -24,3 +24,15 @@ HIDDEN_SIZE = 256
 PATH_TO_DATA = "data"
 PATH_TO_MODELS = "models"
 PATH_TO_ENCODING = "encoding.json"
+
+DATASETS = {
+    "maestro-v3.0.0-time_series": {
+        # maestro-v3.0.0 has 3696777 notes in 1276 files
+        "raw": "maestro-v3.0.0",
+        "processed": "maestro-v3.0.0-time_series",
+    },
+    "jsb_chorales": {
+        "raw": "jsb-chorales-16th.json",
+        "processed": "jsb_chorales.txt",
+    },
+}
