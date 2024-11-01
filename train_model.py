@@ -154,6 +154,11 @@ def check_gradient_norm(model: nn.Module) -> float:
     )
 
 
+def count_model_parameters(model: nn.Module):
+    """Count number of learnable model parameters in a PyTorch model"""
+    return sum(param.numel() for param in model.parameters() if param.requires_grad)
+
+
 def save_checkpoint(file, model, optimizer, epoch, hparams):
     torch.save(
         {
@@ -428,7 +433,7 @@ if __name__ == "__main__":
     # TODO Log to file.
     print("Training model...")
     print(
-        f"Model: {model_name}\n"
+        f"Model: {model_name} ({count_model_parameters(model)} parameters)\n"
         f"Data: {len(data)} sequences from {len(data.files)} files "
         f"(tr+va = {len(train_loader.dataset)}+{len(validation_loader.dataset)}). "
     )
