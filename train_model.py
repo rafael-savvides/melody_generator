@@ -337,6 +337,7 @@ def make_data_loaders(
     Returns:
         tuple of torch DataLoaders
     """
+    batch_size_validation = 10000
     data_tr, data_va = random_split(
         data,
         lengths=(pct_tr, 1 - pct_tr),
@@ -348,7 +349,9 @@ def make_data_loaders(
         shuffle=True,
         generator=torch.Generator().manual_seed(seed_loader),
     )
-    validation_loader = DataLoader(data_va, batch_size=1, shuffle=False)
+    validation_loader = DataLoader(
+        data_va, batch_size=batch_size_validation, shuffle=False
+    )
     return train_loader, validation_loader
 
 
@@ -419,6 +422,7 @@ if __name__ == "__main__":
         "num_unique_tokens": NUM_UNIQUE_TOKENS,
         "seed_split": SEED_SPLIT,
         "seed_loader": SEED_LOADER,
+        "device": DEVICE,
         # TODO Where to save the encoding? Maybe save path to encoding? Or just save it to hparams?
     }
     # TODO Log to file.
