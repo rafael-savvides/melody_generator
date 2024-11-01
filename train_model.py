@@ -232,9 +232,11 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
         self.files = list(Path(path).glob("*.txt"))
         if num_files is not None:
             self.files = np.random.choice(self.files, size=num_files, replace=False)
-        data = []  # list[str]
+        data: list[str] = []
         for file in self.files:
-            data.extend(read_time_series(file))
+            songs = read_time_series(file)
+            for song in songs:
+                data.extend(song)
         if self.transform is not None:
             data = self.transform(data)
         self.data = data

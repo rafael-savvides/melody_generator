@@ -26,7 +26,10 @@ def process_midis(
     path_to_raw, path_to_processed = Path(path_to_raw), Path(path_to_processed)
     path_to_processed.mkdir(parents=True, exist_ok=True)
     if representation == "time_series":
-        read_midi, write_txt = read_midi_to_time_series, write_time_series
+        read_midi, write_txt = (
+            read_midi_to_time_series,
+            lambda seq, file: write_time_series([seq], file),
+        )
     elif representation == "event_sequence":
         read_midi, write_txt = read_midi_to_event_sequence, write_event_sequence
     else:
@@ -74,9 +77,9 @@ def read_midi_to_time_series(
         elif isinstance(event, m21.chord.Chord):
             # note = tuple(n.pitch.midi for n in event.notes) # Save all notes as tuple.
             note = event.notes[0].pitch.midi  # Save first note in chord.
-            # TODO Deal with chords differently.
+            # TODO Deal with chords differently. Could save tuple, then write to txt with commas: 62 62,67
         else:
-            # TODO Try using end token.
+            # TODO Try using end token. Could use \n as end token when writing to txt.
             continue
         duration = event.duration.quarterLength
         num_steps = max(1, int(duration / step))
@@ -145,22 +148,71 @@ def transpose_song(song: m21.stream, target_key=m21.pitch.Pitch("C")) -> m21.str
         )
 
 
-def write_time_series(sequence, file):
-    with open(file, "w") as f:
-        f.write(" ".join(str(e) for e in sequence))
+def read_time_series(
+    file: str | Path,
+    song_delim: str = "\n",
+    beat_delim: str = " ",
+    note_delim: str = ",",
+) -> list[list[str | tuple]]:
+    """Read songs in a time-series representation from a text file
 
+    - The file contains songs. Songs are separated by `song_delim`.
+    - A song is a sequence of beats. Beats are separated by `beat_delim`.
+    - A beat is a string token: a pitch, a tuple of pitches (separated by `note_delim`) or a non-pitch token (like rest or hold).
 
-def write_event_sequence(sequence, file):
-    with open(file, "w") as f:
-        for item in sequence:
-            f.write(",".join(str(e) for e in item))
-            f.write("\n")
+    Examples:
 
+    - "62 64 65" -> ["62", "64", "65"]
+    - "62 64 65\n40 40,44 50" -> ["62", "64", "65"], ["40", ("40", "44"), "50"]
 
-def read_time_series(file: str | Path) -> list[str]:
-    """Read txt file containing space-delimited sequences of pitch numbers or rest tokens or hold tokens"""
+    Args:
+        file: Path to a text file.
+        song_delim: Song deliminator.
+        beat_delim: Beat deliminator.
+        note_delim: Note deliminator.
+
+    Returns:
+        songs in a time series format
+    """
     with open(file) as f:
-        return f.read().split(" ")
+        raw: str = f.read()
+    out = []
+    songs = raw.split(song_delim)
+    for song in songs:
+        beats = song.split(beat_delim)
+        for beat in beats:
+            notes = beat.split(note_delim)
+            if len(notes) == 1:
+                out.append(notes[0])
+            else:
+                out.append(tuple(notes))
+    return out
+
+
+def write_time_series(
+    songs: list[list[str | tuple]],
+    file: str | Path,
+    song_delim: str = "\n",
+    beat_delim: str = " ",
+    note_delim: str = ",",
+):
+    """Write songs in a time-series representation to a text file
+
+    Args:
+        songs: list of songs. See read_time_series().
+        file: Path to a text file.
+        song_delim: Song deliminator.
+        beat_delim: Beat deliminator.
+        note_delim: Note deliminator.
+    """
+    with open(file, "w") as f:
+        for song in songs:
+            beats = [
+                note_delim.join(beat) if isinstance(beat, tuple) else str(beat)
+                for beat in song
+            ]
+            f.write(beat_delim.join(beats))
+            f.write(song_delim)
 
 
 def read_event_sequence(file: str | Path) -> list:
@@ -175,6 +227,15 @@ def read_event_sequence(file: str | Path) -> list:
                 offset = Fraction(offset)
             data.append((int(pitch), float(duration), float(offset)))
     return data
+
+
+def write_event_sequence(
+    sequence, file, field_delim: str = ",", beat_delim: str = "\n"
+):
+    with open(file, "w") as f:
+        for item in sequence:
+            f.write(field_delim.join(str(e) for e in item))
+            f.write(beat_delim)
 
 
 def make_integer_encoding(
