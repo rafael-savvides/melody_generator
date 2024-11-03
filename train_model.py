@@ -26,12 +26,12 @@ def train(
 
     Args:
         model: MelodyLSTM model.
-        train_loader: _description_
-        validation_loader: _description_
-        loss_fn: _description_
-        optimizer: _description_
-        num_epochs: _description_. Defaults to 1.
-        progress: _description_. Defaults to True.
+        train_loader: Torch DataLoader for training data.
+        validation_loader: Torch DataLoader for validation data.
+        loss_fn: Loss function.
+        optimizer: Torch optimizer.
+        num_epochs: Number of epochs. Defaults to 1.
+        progress: If True, prints losses per several batches and per epoch. Defaults to True.
         file: Path in which to save model checkpoints.
         hparams: Dictionary of hyperparameters to log with writer and save to a checkpoint.
 
@@ -84,6 +84,21 @@ def train_epoch(
     epoch: int = 1,
     progress: bool = True,
 ) -> float:
+    """Train one epoch of a torch model
+
+    Args:
+        model: Torch model.
+        train_loader: torch DataLoader for training data.
+        loss_fn: Loss function.
+        optimizer: Torch optimizer.
+        writer: Tensorboard writer.. Defaults to None.
+        device: Torch device. Defaults to torch.device("cpu").
+        epoch: Current epoch.. Defaults to 1.
+        progress: If true, print loss every 1000 epochs. Defaults to True.
+
+    Returns:
+        average loss on the training data
+    """
     loss_sum = 0
     num_instances = 0
     progress_step = 1000  # Print and log every `progress_step` batch.
@@ -124,6 +139,17 @@ def validate_epoch(
     validation_loader: DataLoader,
     device: torch.device = torch.device("cpu"),
 ) -> float:
+    """Compute the average validation loss
+
+    Args:
+        model: Torch model (nn.Module).
+        loss_fn: Loss function.
+        validation_loader: Torch DataLoader for validation data.
+        device: Torch device. Defaults to torch.device("cpu").
+
+    Returns:
+        average loss on the validation data
+    """
     model.eval()
     loss_sum = 0
     num_instances = 0

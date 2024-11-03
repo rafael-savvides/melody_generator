@@ -288,6 +288,7 @@ def load_encoding(file):
 def process_jsb_chorales(
     path_to_raw, rest_token=TOKENS["rest"], end_token=TOKENS["end"]
 ):
+    # TODO May need to transpose to C?
     bachs = read_jsb_chorales(path_to_raw, return_split=False)
     bachs = [
         make_monophonic(song, num_voices=4, end_token=end_token, rest_token=rest_token)
