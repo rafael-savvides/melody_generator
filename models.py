@@ -4,8 +4,9 @@ import numpy as np
 from torch.nn.functional import softplus, log_softmax
 
 
-# TODO Add version to model. Maybe as __version__?
 class MelodyLSTM(nn.Module):
+    __version__ = "0.0.1"
+
     def __init__(self, output_size: int, embedding_size: int, hidden_size: int):
         """LSTM model for melody generation
 
