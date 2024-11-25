@@ -3,7 +3,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 from torch import optim
-from prepare_data import read_event_sequence, read_time_series, encoding
+from prepare_data import read_event_sequence, read_time_series
+from encoder import encoding
 import numpy as np
 from models import MelodyLSTM
 from torch.utils.tensorboard import SummaryWriter

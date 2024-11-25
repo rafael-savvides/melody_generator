@@ -2,7 +2,6 @@ import os
 import torch
 from models import MelodyLSTM
 from pathlib import Path
-from prepare_data import encoding, decoding
 import numpy as np
 import music21 as m21
 from config import TOKENS
@@ -159,6 +158,7 @@ def make_argparser():
 if __name__ == "__main__":
     from datetime import datetime
     from config import PATH_TO_MODELS
+    from encoder import encoding, decoding
 
     parser = make_argparser()
     args = parser.parse_args()

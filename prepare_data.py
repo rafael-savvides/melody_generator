@@ -4,7 +4,7 @@ import csv
 from fractions import Fraction
 from tqdm import tqdm
 import json
-from config import NUM_PITCHES, STEP_SIZE, TOKENS
+from config import STEP_SIZE, TOKENS
 
 
 def prepare_data(dataset: str, path_to_raw: str | Path, path_to_processed: str | Path):
@@ -253,38 +253,6 @@ def write_event_sequence(
             f.write(beat_delim)
 
 
-def make_integer_encoding(
-    num_int: int = 0, non_int_tokens: list[str] = tuple()
-) -> dict[str, int]:
-    """Make integer encoder
-
-    Maps str(int) to int e.g. "22" to 22 up to `num_int` after which it encodes `non_int_tokens`.
-
-    Args:
-        num_int: Number of pitches. Defaults to 0.
-        non_int_tokens: Number of non-pitch tokens. Defaults to tuple().
-
-    Returns:
-        dict where v[token] gives a token's integer encoding.
-    """
-    encoding = {str(i): i for i in range(num_int)}
-    for token in non_int_tokens:
-        encoding[token] = len(encoding)
-    return encoding
-
-
-def save_encoding(encoding, file):
-    with open(file, "w") as f:
-        json.dump(encoding, f)
-
-
-def load_encoding(file):
-    with open(file) as f:
-        encoding = json.load(f)
-    decoding = {v: k for k, v in encoding.items()}
-    return encoding, decoding
-
-
 def process_jsb_chorales(
     path_to_raw, rest_token=TOKENS["rest"], end_token=TOKENS["end"]
 ):
@@ -356,11 +324,8 @@ def make_monophonic(
     return mono
 
 
-encoding = make_integer_encoding(NUM_PITCHES, non_int_tokens=list(TOKENS.values()))
-decoding = {v: k for k, v in encoding.items()}
-
 if __name__ == "__main__":
-    from config import PATH_TO_ENCODING, PATH_TO_DATA, DATASETS
+    from config import PATH_TO_DATA, DATASETS
 
     dataset = "jsb_chorales"
 
@@ -374,7 +339,3 @@ if __name__ == "__main__":
         path_to_raw=Path(PATH_TO_DATA) / DATASETS[dataset]["raw"],
         path_to_processed=Path(PATH_TO_DATA) / DATASETS[dataset]["processed"],
     )
-
-    # TODO Should the encoding be created in train_model? It is part of the model, not the data.
-    path_to_encoding = Path(PATH_TO_ENCODING)
-    save_encoding(encoding, path_to_encoding)
