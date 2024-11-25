@@ -133,6 +133,7 @@ def train_epoch(
     return loss_avg.item()
 
 
+@torch.no_grad()
 def validate_epoch(
     model: MelodyLSTM,
     loss_fn: callable,

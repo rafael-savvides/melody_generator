@@ -4,6 +4,7 @@ import torch
 from models import MelodyLSTM
 
 
+@torch.no_grad()
 def generate_melody(model, initial_sequence, num_notes, sequence_length):
     melody = list(initial_sequence)
     for i in range(num_notes):
