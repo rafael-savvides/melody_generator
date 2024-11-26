@@ -79,22 +79,28 @@ def time_series_to_midi(
     Returns:
         music21 stream
     """
-    stream = m21.stream.Stream()
 
+    def make_note(pitch, length):
+        return (
+            m21.note.Rest(quarterLength=length)
+            if pitch is None
+            else m21.note.Note(midi=pitch, quarterLength=length)
+        )
+
+    stream = m21.stream.Stream()
     step = 1
-    for e in sequence:
+    pitch_prev = None
+    for i, e in enumerate(sequence):
         if e == hold_token:
             step += 1
-        else:
-            length = step_duration * step
-            if e == rest_token:
-                note = m21.note.Rest(quarterLength=length)
-            elif e == end_token:
-                break
-            else:
-                note = m21.note.Note(pitch=int(e), quarterLength=length)
-            stream.append(note)
-            step = 1
+            continue
+        if e == end_token:
+            break
+        if i > 0:
+            stream.append(make_note(pitch_prev, step_duration * step))
+        step = 1
+        pitch_prev = None if e == rest_token else int(e)
+    stream.append(make_note(pitch_prev, step_duration * step))
 
     if filename is not None:
         stream.write(fmt="midi", fp=filename)
