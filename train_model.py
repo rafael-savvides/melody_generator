@@ -262,6 +262,10 @@ class EventSequenceDataset(torch.utils.data.Dataset):
 
 
 class TimeSeriesDataset(torch.utils.data.Dataset):
+    """Time series dataset
+
+    An item is a tuple (sequence, next_item).
+    """
 
     def __init__(
         self,
