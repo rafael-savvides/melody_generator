@@ -191,17 +191,14 @@ def read_time_series(
     """
     with open(file) as f:
         raw: str = f.read()
-    out = []
-    songs = raw.split(song_delim)
-    for song in songs:
-        beats = song.split(beat_delim)
-        for beat in beats:
-            notes = beat.split(note_delim)
-            if len(notes) == 1:
-                out.append(notes[0])
-            else:
-                out.append(tuple(notes))
-    return out
+    return [
+        [
+            beat if beat.find(note_delim) == -1 else tuple(beat.split(note_delim))
+            for beat in song.split(beat_delim)
+        ]
+        for song in raw.split(song_delim)
+        if song != ""
+    ]
 
 
 def write_time_series(
