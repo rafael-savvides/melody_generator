@@ -13,7 +13,7 @@ PCT_TR = 0.8
 LEARNING_RATE = 0.01
 BATCH_SIZE = 16
 NUM_EPOCHS = 50
-NUM_FILES = None
+DATA_SIZE = None  # If None, use all data.
 
 # Model
 EMBEDDING_SIZE = 32

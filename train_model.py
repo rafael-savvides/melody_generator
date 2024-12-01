@@ -268,7 +268,7 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
         path: str | Path,
         sequence_length: int,
         transform: callable = None,
-        num_files: int = None,
+        size: int = None,
     ):
         """Time series dataset of notes
 
@@ -276,7 +276,7 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
             path: Path to a text file or a directory of text files. The text file is a sequence of tokens, see :func:`read_time_series`.
             sequence_length: Sequence length to use as input for predicting the next item in the sequence.
             transform: A function (list[str] -> iterable of any) applied to sequences.
-            num_files: Number of files to use from path. If None, uses all files.
+            size: Number of data items, i.e., dataset length (number of tokens - sequence length). If None, uses all data in `path`. Else reads the first `size` sequence items from files in `path` (files are read in Path.glob()'s order).
         """
         self.sequence_length = sequence_length
         self.transform = transform
@@ -285,13 +285,15 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
             self.files = [self.path]
         else:
             self.files = list(self.path.glob("*.txt"))
-            if num_files is not None:
-                self.files = np.random.choice(self.files, size=num_files, replace=False)
         data: list[str] = []
         for file in self.files:
             songs = read_time_series(file)
             for song in songs:
                 data.extend(song)
+            if size is not None:
+                if len(data) - self.sequence_length >= size:
+                    data = data[: size + self.sequence_length]
+                    break
         if self.transform is not None:
             data = self.transform(data)
         self.data = data
@@ -319,7 +321,7 @@ def get_data(
     path: str | Path,
     sequence_length: int,
     encoding: dict = None,
-    num_files: int = None,
+    size: int = None,
 ) -> torch.utils.data.Dataset:
     """Get dataset by name
 
@@ -328,7 +330,7 @@ def get_data(
         path: Path to the data.
         sequence_length: Sequence length.
         encoding: Encoding. Defaults to None.
-        num_files: Number of files to load from path. Defaults to None.
+        size: Data size. Defaults to None.
 
     Returns:
         torch Dataset
@@ -338,13 +340,14 @@ def get_data(
             path=path,
             sequence_length=sequence_length,
             transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
-            num_files=num_files,
+            size=size,
         )
     elif name == "jsb_chorales":
         data = TimeSeriesDataset(
             path=path,
             sequence_length=sequence_length,
             transform=lambda seq: torch.tensor([encoding[e] for e in seq]),
+            size=size,
         )
     else:
         raise ValueError(f"Unknown data_name ({name}).")
@@ -394,7 +397,7 @@ if __name__ == "__main__":
         LEARNING_RATE,
         BATCH_SIZE,
         NUM_EPOCHS,
-        NUM_FILES,
+        DATA_SIZE,
         SEED_SPLIT,
         SEED_LOADER,
         PCT_TR,
@@ -424,7 +427,7 @@ if __name__ == "__main__":
         path=Path(PATH_TO_DATA) / DATASETS[dataset]["processed"],
         sequence_length=SEQUENCE_LENGTH,
         encoding=encoding,
-        num_files=NUM_FILES,
+        size=DATA_SIZE,
     )
     train_loader, validation_loader = make_data_loaders(
         data,
@@ -451,7 +454,7 @@ if __name__ == "__main__":
         "learning_rate": LEARNING_RATE,
         "num_epochs": NUM_EPOCHS,
         "batch_size": BATCH_SIZE,
-        "num_files": NUM_FILES,
+        "data_size": DATA_SIZE,
         "output_size": OUTPUT_SIZE,
         "seed_split": SEED_SPLIT,
         "seed_loader": SEED_LOADER,
