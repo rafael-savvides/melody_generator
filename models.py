@@ -39,6 +39,11 @@ class MelodyLSTM(nn.Module):
 
         Returns:
             Log-probabilities as torch tensor of shape (batch_size, seq_len, output_size)
+
+        Notes:
+            To input a single note sequence as a list, it should be a nested list:
+            - note_seq = [1,2,3] -> (batch_size, seq_len) = (3, 1)
+            - note_seq = [[1,2,3]] -> (batch_size, seq_len) = (1, 3)
         """
         if isinstance(note_seq, np.ndarray) or isinstance(note_seq, list):
             batch_size = len(note_seq)
