@@ -10,10 +10,11 @@ SEQUENCE_LENGTH = 64
 PCT_TR = 0.8
 
 # Training
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.001
 BATCH_SIZE = 16
 NUM_EPOCHS = 50
 DATA_SIZE = None  # If None, use all data.
+OPTIMIZER = "Adam"
 
 # Model
 EMBEDDING_SIZE = 32

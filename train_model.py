@@ -417,6 +417,7 @@ if __name__ == "__main__":
         PATH_TO_MODELS,
         PATH_TO_DATA,
         DATASETS,
+        OPTIMIZER,
     )
 
     # dataset = "maestro-v3.0.0-time_series"
@@ -451,7 +452,13 @@ if __name__ == "__main__":
         hidden_size=HIDDEN_SIZE,
     ).to(DEVICE)
     loss_fn = nn.NLLLoss()  # Input: log probabilities
-    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
+
+    if OPTIMIZER == "SGD":
+        optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
+    elif OPTIMIZER == "Adam":
+        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    else:
+        raise ValueError(f"Unknown OPTIMIZER={OPTIMIZER}.")
 
     hparams = {
         "dataset": dataset,
@@ -467,7 +474,7 @@ if __name__ == "__main__":
         "seed_split": SEED_SPLIT,
         "seed_loader": SEED_LOADER,
         "device": DEVICE,
-        # TODO Where to save the encoding? Maybe save path to encoding? Or just save it to hparams?
+        "optimizer": OPTIMIZER,
     }
     # TODO Log to file.
     print("Training model...")
