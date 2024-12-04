@@ -11,18 +11,18 @@ from torch.nn.functional import softmax
 
 def generate_melody(
     model: MelodyLSTM,
-    initial_sequence: list[str],
+    initial_sequence: list[int],
     num_notes: int,
     sequence_length: int,
     temperature: float = 1.0,
     random_seed: int = None,
     allowed_notes: list[int] = None,
-) -> list[str]:
+) -> list[int]:
     """Generate a melody
 
     Args:
         model: A MelodyLSTM model.
-        initial_sequence: A list of note tokens to start the melody.
+        initial_sequence: A list of encoded note tokens to start the melody.
         num_notes: Number of tokens to generate.
         sequence_length: The number of tokens to use as context in the model.
         temperature: Temperature parameter for sampling. Defaults to 1.0.
@@ -38,7 +38,7 @@ def generate_melody(
     melody = list(initial_sequence)
     for _ in range(num_notes):
         inputs = melody[-sequence_length:]
-        output = model(inputs)[-1].detach().ravel()  # log_softmax(.)
+        output = model([inputs])[:, -1].ravel().detach()  # log_softmax(.)
         if allowed_notes is not None:
             out = torch.full_like(output, -torch.inf)
             out[allowed_notes] = output[allowed_notes]
