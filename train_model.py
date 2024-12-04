@@ -20,6 +20,7 @@ def train(
     device: torch.device = torch.device("cpu"),
     writer: SummaryWriter = None,
     hparams: dict = None,
+    encoding: dict = None,
     progress: bool = True,
     file: str | Path = None,
 ) -> tuple[float, float]:
@@ -35,6 +36,7 @@ def train(
         progress: If True, prints losses per several batches and per epoch. Defaults to True.
         file: Path in which to save model checkpoints.
         hparams: Dictionary of hyperparameters to log with writer and save to a checkpoint.
+        encoding: Dictionary that maps MIDI notes as strings to integers fed into the model.
 
     Returns:
         train loss, validation loss
@@ -64,6 +66,7 @@ def train(
                 optimizer=optimizer,
                 epoch=epoch,
                 hparams=hparams,
+                encoding=encoding,
             )
             print(f"Saved checkpoint to {file}.")
         if progress:
@@ -187,14 +190,15 @@ def count_model_parameters(model: nn.Module):
     return sum(param.numel() for param in model.parameters() if param.requires_grad)
 
 
-def save_checkpoint(file, model, optimizer, epoch, hparams):
+def save_checkpoint(file, model, optimizer, epoch, hparams, encoding):
     torch.save(
         {
             "name": file,
             "epoch": epoch,
             "hparams": hparams,
-            "model_state_dict": model.state_dict(),  # TODO What exactly is in state_dict?
+            "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "encoding": encoding,
         },
         file,
     )
@@ -483,6 +487,7 @@ if __name__ == "__main__":
         num_epochs=NUM_EPOCHS,
         device=DEVICE,
         hparams=hparams,
+        encoding=encoding,
         file=model_file,
     )
 
