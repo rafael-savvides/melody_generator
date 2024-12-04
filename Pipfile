@@ -10,6 +10,7 @@ ipykernel = "*"
 tqdm = "*"
 torch = "*"
 tensorboard = "*"
+pandas = "*"
 
 [dev-packages]
 pytest = "*"
