@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 from torch import optim
 from prepare_data import read_event_sequence, read_time_series
-from encoder import encoding
 import numpy as np
 from models import MelodyLSTM
 from torch.utils.tensorboard import SummaryWriter
@@ -401,6 +400,7 @@ def make_data_loaders(
 
 if __name__ == "__main__":
     from datetime import datetime
+    from encoder import get_encoding
     from config import (
         LEARNING_RATE,
         BATCH_SIZE,
@@ -431,6 +431,8 @@ if __name__ == "__main__":
     path_to_models.mkdir(parents=True, exist_ok=True)
     model_file = path_to_models / f"{model_name}.pth"
 
+    encoding, decoding = get_encoding(dataset)
+    OUTPUT_SIZE = len(encoding) if OUTPUT_SIZE is None else OUTPUT_SIZE
     data = get_data(
         name=dataset,
         path=Path(PATH_TO_DATA) / DATASETS[dataset]["processed"],

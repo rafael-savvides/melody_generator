@@ -176,7 +176,7 @@ def make_argparser():
 if __name__ == "__main__":
     from datetime import datetime
     from config import PATH_TO_MODELS
-    from encoder import encoding, decoding
+    from encoder import get_encoding
 
     parser = make_argparser()
     args = parser.parse_args()
@@ -185,9 +185,11 @@ if __name__ == "__main__":
     STEPS = args.steps
     TEMPERATURE = args.temperature
     RANDOM_SEED = args.random_seed
-    allowed_notes = "36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 E R".split(
-        " "
-    )
+
+    encoding, decoding = get_encoding("jsb_chorales")
+    allowed_notes = list(encoding.values())
+    encode = lambda seq: [encoding[e] for e in seq]
+    decode = lambda seq: [decoding[e] for e in seq]
 
     MODEL_FILE = os.getenv("MODEL_FILE", None)
     if MODEL_FILE is None:
@@ -207,16 +209,14 @@ if __name__ == "__main__":
     )
     melody = generate_melody(
         model=model,
-        initial_sequence=[encoding[e] for e in INITIAL_SEQUENCE.split(" ")],
+        initial_sequence=encode(INITIAL_SEQUENCE.split(" ")),
         num_notes=STEPS,
         sequence_length=hparams["sequence_length"],
         temperature=TEMPERATURE,
         random_seed=RANDOM_SEED,
-        allowed_notes=[encoding[e] for e in allowed_notes],
+        allowed_notes=encode(allowed_notes),
     )
-    stream = time_series_to_midi(
-        [decoding[e] for e in melody], step_duration=STEP_DURATION
-    )
+    stream = time_series_to_midi(decode(melody), step_duration=STEP_DURATION)
 
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     output_file = path_to_generated / f"melody_{timestamp}.mid"

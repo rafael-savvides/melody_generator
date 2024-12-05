@@ -1,5 +1,11 @@
-from config import NUM_PITCHES, TOKENS
 import json
+from config import DATASETS
+
+
+def get_encoding(dataset):
+    if not dataset in DATASETS:
+        raise NotImplementedError(f"Unknown dataset={dataset}.")
+    return make_encoding(DATASETS[dataset]["notes"])
 
 
 def make_encoding(tokens: list[str]) -> tuple[dict[str, int], dict[int, str]]:
@@ -31,13 +37,9 @@ def load_encoding(file):
     return encoding, decoding
 
 
-encoding, decoding = make_encoding(
-    [str(i) for i in range(NUM_PITCHES)] + list(TOKENS.values())
-)
-
 if __name__ == "__main__":
     from pathlib import Path
-    from config import PATH_TO_ENCODING
 
-    path_to_encoding = Path(PATH_TO_ENCODING)
-    save_encoding(encoding, path_to_encoding)
+    for dataset in DATASETS.keys():
+        encoding, decoding = get_encoding(dataset)
+        save_encoding(encoding, Path(DATASETS["encoding_path"]))
