@@ -479,6 +479,7 @@ if __name__ == "__main__":
         "seed_loader": SEED_LOADER,
         "device": DEVICE,
         "optimizer": OPTIMIZER,
+        "dropout": DROPOUT,
     }
     # TODO Log to file.
     print("Training model...")
