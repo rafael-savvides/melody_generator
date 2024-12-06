@@ -418,6 +418,7 @@ if __name__ == "__main__":
         PATH_TO_DATA,
         DATASETS,
         OPTIMIZER,
+        DROPOUT,
     )
 
     # dataset = "maestro-v3.0.0-time_series"
@@ -447,11 +448,12 @@ if __name__ == "__main__":
         seed_split=SEED_SPLIT,
         seed_loader=SEED_LOADER,
     )
-
+    # TODO Fix initialization seed (also for optimizer?)
     model = MelodyLSTM(
         output_size=OUTPUT_SIZE,
         embedding_size=EMBEDDING_SIZE,
         hidden_size=HIDDEN_SIZE,
+        dropout=DROPOUT,
     ).to(DEVICE)
     loss_fn = nn.NLLLoss()  # Input: log probabilities
 

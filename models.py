@@ -7,15 +7,22 @@ from torch.nn.functional import softplus, log_softmax
 class MelodyLSTM(nn.Module):
     __version__ = "0.0.1"
 
-    def __init__(self, output_size: int, embedding_size: int, hidden_size: int):
+    def __init__(
+        self,
+        output_size: int,
+        embedding_size: int,
+        hidden_size: int,
+        dropout: float = 0,
+    ):
         """LSTM model for melody generation
 
         A song is a sequence of notes. A note is represented as a pitch or rest or hold token.
 
         Args:
-            output_size: Number of unique tokens (vocabulary size), i.e., pitch range + 2.
+            output_size: Number of unique tokens (vocabulary size).
             embedding_size: Pitch embedding dimension.
             hidden_size: Hidden LSTM dimension.
+            dropout: Dropout rate at LSTM outputs.
         """
         super().__init__()
         self.output_size = output_size
@@ -26,7 +33,9 @@ class MelodyLSTM(nn.Module):
         # (batch_size, seq_len) -> (batch_size, seq_len, embedding_size)
         self.embedding = nn.Embedding(output_size, embedding_size)
         # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, hidden_size)
-        self.lstm = nn.LSTM(embedding_size, hidden_size, batch_first=True)
+        self.lstm = nn.LSTM(
+            embedding_size, hidden_size, batch_first=True, dropout=dropout
+        )
         # (batch_size, seq_len, hidden_size) -> (batch_size, seq_len, output_size)
         self.fc = nn.Linear(hidden_size, output_size)
 
