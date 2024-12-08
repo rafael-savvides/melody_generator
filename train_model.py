@@ -8,6 +8,7 @@ import numpy as np
 from models import MelodyLSTM
 from torch.utils.tensorboard import SummaryWriter
 import logging
+import argparse
 
 
 def train(
@@ -23,6 +24,7 @@ def train(
     encoding: dict = None,
     progress: bool = True,
     file: str | Path = None,
+    checkpoint: str | Path = None,
 ) -> tuple[float, float]:
     """Train MelodyLSTM model
 
@@ -33,16 +35,19 @@ def train(
         loss_fn: Loss function.
         optimizer: Torch optimizer.
         num_epochs: Number of epochs. Defaults to 1.
-        progress: If True, prints losses per several batches and per epoch. Defaults to True.
-        file: Path in which to save model checkpoints.
         hparams: Dictionary of hyperparameters to log with writer and save to a checkpoint.
         encoding: Dictionary that maps MIDI notes as strings to integers fed into the model.
+        progress: If True, prints losses per several batches and per epoch. Defaults to True.
+        file: Path in which to save model checkpoints.
+        checkpoint: Path from which to load a model checkpoint.
 
     Returns:
         train loss, validation loss
     """
     if writer is not None:
         writer.add_hparams(hparams, metric_dict={}, run_name="hparams")
+    if checkpoint is not None:
+        load_checkpoint(checkpoint, model, optimizer)
     for epoch in range(1, num_epochs + 1):
         model.train()
         if progress:
@@ -98,7 +103,7 @@ def train_epoch(
         writer: Tensorboard writer.. Defaults to None.
         device: Torch device. Defaults to torch.device("cpu").
         epoch: Current epoch.. Defaults to 1.
-        progress: If true, print loss every 1000 epochs. Defaults to True.
+        progress: If true, print loss every 1000 batches. Defaults to True.
 
     Returns:
         average loss on the training data
@@ -204,8 +209,14 @@ def save_checkpoint(file, model, optimizer, epoch, hparams, encoding):
     )
 
 
-def load_checkpoint(file):
+def load_checkpoint(
+    file: str | Path, model: nn.Module = None, optimizer: torch.optim.Optimizer = None
+):
     d = torch.load(file)
+    if model is not None:
+        model.load_state_dict(d["model_state_dict"])
+    if optimizer is not None:
+        optimizer.load_state_dict(d["optimizer_state_dict"])
     return d
 
 
@@ -422,6 +433,25 @@ def log(message):
         print(message)
 
 
+def make_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--checkpoint",
+        type="str",
+        default=None,
+        help="Model checkpoint to load. If None, train from scratch.",
+    )
+    parser.add_argument(
+        "-d",
+        "--dataset",
+        type="str",
+        default="jsb_chorales",
+        help=f"Dataset to train on. One of: {', '.join(DATASETS.keys())}.",
+    )
+    return parser
+
+
 if __name__ == "__main__":
     from datetime import datetime
     from encoder import get_encoding
@@ -447,8 +477,11 @@ if __name__ == "__main__":
         DROPOUT,
     )
 
-    # dataset = "maestro-v3.0.0-time_series"
-    dataset = "jsb_chorales"
+    parser = make_parser()
+    args = parser.parse_args()
+
+    dataset = args.dataset
+    checkpoint = args.checkpoint
 
     t_start = datetime.now()
     timestamp = t_start.strftime("%Y-%m-%dT%H-%M-%S")
@@ -478,7 +511,6 @@ if __name__ == "__main__":
         seed_loader=SEED_LOADER,
     )
     # TODO Fix initialization seed (also for optimizer?)
-    # TODO Add option to load model and optimizer checkpoints from a file and continue training.
     model = MelodyLSTM(
         output_size=OUTPUT_SIZE,
         embedding_size=EMBEDDING_SIZE,
@@ -513,9 +545,8 @@ if __name__ == "__main__":
         "dropout": DROPOUT,
     }
 
-    log("Training model...")
+    log("Training model {model_name} ({count_model_parameters(model)} parameters)")
     log(
-        f"Model: {model_name} ({count_model_parameters(model)} parameters)\n"
         f"Data: {len(data)} sequences from {len(data.files)} files "
         f"(tr+va = {len(train_loader.dataset)}+{len(validation_loader.dataset)}). "
     )
@@ -532,6 +563,7 @@ if __name__ == "__main__":
         hparams=hparams,
         encoding=encoding,
         file=model_file,
+        checkpoint=checkpoint,
     )
 
     t_end = datetime.now()
