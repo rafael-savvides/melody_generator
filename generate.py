@@ -187,7 +187,7 @@ if __name__ == "__main__":
     RANDOM_SEED = args.random_seed
 
     encoding, decoding = get_encoding("jsb_chorales")
-    allowed_notes = list(encoding.values())
+    allowed_notes = list(encoding.keys())
     encode = lambda seq: [encoding[e] for e in seq]
     decode = lambda seq: [decoding[e] for e in seq]
 
