@@ -48,6 +48,7 @@ def train(
         writer.add_hparams(hparams, metric_dict={}, run_name="hparams")
     if checkpoint is not None:
         load_checkpoint(checkpoint, model, optimizer)
+        log(f"Loaded model and optimizer checkpoint from {checkpoint}.")
     for epoch in range(1, num_epochs + 1):
         model.train()
         if progress:
@@ -545,7 +546,7 @@ if __name__ == "__main__":
         "dropout": DROPOUT,
     }
 
-    log("Training model {model_name} ({count_model_parameters(model)} parameters)")
+    log(f"Training model {model_name} ({count_model_parameters(model)} parameters)")
     log(
         f"Data: {len(data)} sequences from {len(data.files)} files "
         f"(tr+va = {len(train_loader.dataset)}+{len(validation_loader.dataset)}). "
