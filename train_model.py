@@ -7,6 +7,7 @@ from prepare_data import read_event_sequence, read_time_series
 import numpy as np
 from models import MelodyLSTM
 from torch.utils.tensorboard import SummaryWriter
+import logging
 
 
 def train(
@@ -45,7 +46,7 @@ def train(
     for epoch in range(1, num_epochs + 1):
         model.train()
         if progress:
-            print(f"Epoch {epoch}")
+            log(f"Epoch {epoch}")
         loss_tr = train_epoch(
             model=model,
             train_loader=train_loader,
@@ -67,10 +68,10 @@ def train(
                 hparams=hparams,
                 encoding=encoding,
             )
-            print(f"Saved checkpoint to {file}.")
+            log(f"Saved checkpoint to {file}.")
         if progress:
-            print(f"loss_va = {loss_va:.4f}")
-            print(f"loss_tr = {loss_tr:.4f}")
+            log(f"loss_va = {loss_va:.4f}")
+            log(f"loss_tr = {loss_tr:.4f}")
         if writer is not None:
             writer.add_scalar("Loss/Train_epoch", loss_tr, epoch)
             writer.add_scalar("Loss/Validation_epoch", loss_va, epoch)
@@ -122,7 +123,7 @@ def train_epoch(
         loss_batch.backward()
         if batch == 1 or (batch % progress_step) == 0:
             if progress:
-                print(
+                log(
                     f"batch {batch}. "
                     f"loss_batch = {loss_batch.item():.4E}. "
                     f"loss = {loss_avg.item():.4E}. "
@@ -398,6 +399,29 @@ def make_data_loaders(
     return train_loader, validation_loader
 
 
+def make_logger(file=None):
+    logger = logging.getLogger(__name__)
+    logger.setLevel("INFO")
+    console_handler = logging.StreamHandler()
+    logger.addHandler(console_handler)
+
+    if file is not None:
+        formatter = logging.Formatter(
+            "{asctime}. {message}", style="{", datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        file_handler = logging.FileHandler(filename=file, encoding="utf8")
+        logger.addHandler(file_handler)
+        file_handler.setFormatter(formatter)
+    return logger
+
+
+def log(message):
+    try:
+        logger.info(message)
+    except:
+        print(message)
+
+
 if __name__ == "__main__":
     from datetime import datetime
     from encoder import get_encoding
@@ -416,6 +440,7 @@ if __name__ == "__main__":
         DEVICE,
         PATH_TO_MODELS,
         PATH_TO_DATA,
+        PATH_TO_LOGS,
         DATASETS,
         OPTIMIZER,
         OPTIMIZER_PARAMS,
@@ -432,6 +457,9 @@ if __name__ == "__main__":
     path_to_models = Path(PATH_TO_MODELS)
     path_to_models.mkdir(parents=True, exist_ok=True)
     model_file = path_to_models / f"{model_name}.pth"
+
+    Path(PATH_TO_LOGS).mkdir(parents=True, exist_ok=True)
+    logger = make_logger(Path(PATH_TO_LOGS) / f"{model_name}.txt")
 
     encoding, decoding = get_encoding(dataset)
     OUTPUT_SIZE = len(encoding) if OUTPUT_SIZE is None else OUTPUT_SIZE
@@ -450,6 +478,7 @@ if __name__ == "__main__":
         seed_loader=SEED_LOADER,
     )
     # TODO Fix initialization seed (also for optimizer?)
+    # TODO Add option to load model and optimizer checkpoints from a file and continue training.
     model = MelodyLSTM(
         output_size=OUTPUT_SIZE,
         embedding_size=EMBEDDING_SIZE,
@@ -483,14 +512,14 @@ if __name__ == "__main__":
         "optimizer_params": str(OPTIMIZER_PARAMS),
         "dropout": DROPOUT,
     }
-    # TODO Log to file.
-    print("Training model...")
-    print(
+
+    log("Training model...")
+    log(
         f"Model: {model_name} ({count_model_parameters(model)} parameters)\n"
         f"Data: {len(data)} sequences from {len(data.files)} files "
         f"(tr+va = {len(train_loader.dataset)}+{len(validation_loader.dataset)}). "
     )
-    print(f"Hyperparameters: {str(hparams)}")
+    log(f"Hyperparameters: {str(hparams)}")
     loss_tr, loss_va = train(
         model=model,
         train_loader=train_loader,
@@ -506,4 +535,4 @@ if __name__ == "__main__":
     )
 
     t_end = datetime.now()
-    print(f"Done. ({t_end:%F %T}, {(t_end - t_start).seconds} sec)")
+    log(f"Done. ({t_end:%F %T}, {(t_end - t_start).seconds} sec)")

@@ -25,6 +25,7 @@ DROPOUT = 0.2  # At LSTM output
 # Paths
 PATH_TO_DATA = "data"
 PATH_TO_MODELS = "models"
+PATH_TO_LOGS = "logs"
 
 DATASETS = {
     "maestro-v3.0.0-time_series": {
