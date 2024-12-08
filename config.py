@@ -14,6 +14,7 @@ BATCH_SIZE = 16
 NUM_EPOCHS = 50
 DATA_SIZE = None  # If None, use all data.
 OPTIMIZER = "Adam"
+OPTIMIZER_PARAMS = {"weight_decay": 1e-5}
 
 # Model
 EMBEDDING_SIZE = 32

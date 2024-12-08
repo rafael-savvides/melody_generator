@@ -418,6 +418,7 @@ if __name__ == "__main__":
         PATH_TO_DATA,
         DATASETS,
         OPTIMIZER,
+        OPTIMIZER_PARAMS,
         DROPOUT,
     )
 
@@ -458,9 +459,9 @@ if __name__ == "__main__":
     loss_fn = nn.NLLLoss()  # Input: log probabilities
 
     if OPTIMIZER == "SGD":
-        optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
+        optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, **OPTIMIZER_PARAMS)
     elif OPTIMIZER == "Adam":
-        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+        optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, **OPTIMIZER_PARAMS)
     else:
         raise ValueError(f"Unknown OPTIMIZER={OPTIMIZER}.")
 
@@ -479,6 +480,7 @@ if __name__ == "__main__":
         "seed_loader": SEED_LOADER,
         "device": DEVICE,
         "optimizer": OPTIMIZER,
+        "optimizer_params": str(OPTIMIZER_PARAMS),
         "dropout": DROPOUT,
     }
     # TODO Log to file.
