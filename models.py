@@ -5,7 +5,7 @@ from torch.nn.functional import softplus, log_softmax
 
 
 class MelodyLSTM(nn.Module):
-    __version__ = "0.0.1"
+    __version__ = "0.0.2"
 
     def __init__(
         self,
