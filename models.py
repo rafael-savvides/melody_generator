@@ -22,7 +22,7 @@ class MelodyLSTM(nn.Module):
             output_size: Number of unique tokens (vocabulary size).
             embedding_size: Pitch embedding dimension.
             hidden_size: Hidden LSTM dimension.
-            dropout: Dropout rate at LSTM outputs.
+            dropout: Dropout rate at LSTM output.
         """
         super().__init__()
         self.output_size = output_size
@@ -33,9 +33,8 @@ class MelodyLSTM(nn.Module):
         # (batch_size, seq_len) -> (batch_size, seq_len, embedding_size)
         self.embedding = nn.Embedding(output_size, embedding_size)
         # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, hidden_size)
-        self.lstm = nn.LSTM(
-            embedding_size, hidden_size, batch_first=True, dropout=dropout
-        )
+        self.lstm = nn.LSTM(embedding_size, hidden_size, batch_first=True)
+        self.dropout = nn.Dropout(p=dropout)
         # (batch_size, seq_len, hidden_size) -> (batch_size, seq_len, output_size)
         self.fc = nn.Linear(hidden_size, output_size)
 
@@ -61,7 +60,8 @@ class MelodyLSTM(nn.Module):
         note_seq = torch.atleast_2d(note_seq)
         embeds = self.embedding(note_seq)
         lstm_out, _ = self.lstm(embeds)
-        out = self.fc(lstm_out)
+        lstm_out_dropout = self.dropout(lstm_out)
+        out = self.fc(lstm_out_dropout)
         scores = log_softmax(out, dim=2)
         return scores
 

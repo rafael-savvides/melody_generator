@@ -20,7 +20,7 @@ OPTIMIZER_PARAMS = {"weight_decay": 1e-5}
 EMBEDDING_SIZE = 32
 HIDDEN_SIZE = 256
 OUTPUT_SIZE = None  # If None, use all encodable strings, i.e., len(encoding).
-DROPOUT = 0.5  # At LSTM output
+DROPOUT = 0.2  # At LSTM output
 
 # Paths
 PATH_TO_DATA = "data"
