@@ -439,14 +439,14 @@ def make_parser():
     parser.add_argument(
         "-c",
         "--checkpoint",
-        type="str",
+        type=str,
         default=None,
         help="Model checkpoint to load. If None, train from scratch.",
     )
     parser.add_argument(
         "-d",
         "--dataset",
-        type="str",
+        type=str,
         default="jsb_chorales",
         help=f"Dataset to train on. One of: {', '.join(DATASETS.keys())}.",
     )
