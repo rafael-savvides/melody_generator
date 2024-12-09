@@ -44,13 +44,16 @@ def train(
     Returns:
         train loss, validation loss
     """
+    first_epoch = 0
     if writer is not None:
         writer.add_hparams(hparams, metric_dict={}, run_name="hparams")
     if checkpoint is not None:
-        load_checkpoint(checkpoint, model, optimizer)
-        log(f"Loaded model and optimizer checkpoint from {checkpoint}.")
-    for epoch in range(1, num_epochs + 1):
-        model.train()
+        d = load_checkpoint(checkpoint, model, optimizer)
+        first_epoch = d["epoch"]
+        log(
+            f"Loaded model and optimizer checkpoint from {checkpoint} (epoch {first_epoch})."
+        )
+    for epoch in range(first_epoch + 1, first_epoch + 1 + num_epochs):
         if progress:
             log(f"Epoch {epoch}")
         loss_tr = train_epoch(
