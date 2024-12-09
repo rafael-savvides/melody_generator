@@ -131,15 +131,16 @@ def train_epoch(
 
         loss_batch.backward()
         if batch == 1 or (batch % progress_step) == 0:
+            grad_norm = check_gradient_norm(model)
             if progress:
                 log(
                     f"batch {batch}. "
                     f"loss_batch = {loss_batch.item():.4E}. "
                     f"loss = {loss_avg.item():.4E}. "
+                    f"|G| = {grad_norm:.1E}. "
                 )
             if writer is not None:
                 step = (epoch - 1) * len(train_loader.dataset) + num_instances
-                grad_norm = check_gradient_norm(model)
                 writer.add_scalar("Gradient Norm", grad_norm, step)
                 writer.add_scalar("Loss/Train", loss_avg.item(), step)
         optimizer.step()
