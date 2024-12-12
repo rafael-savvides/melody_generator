@@ -17,7 +17,7 @@ OPTIMIZER = "Adam"
 OPTIMIZER_PARAMS = {"weight_decay": 1e-5}
 
 # Model
-EMBEDDING_SIZE = 32
+EMBEDDING_SIZE = 8
 HIDDEN_SIZE = 256
 OUTPUT_SIZE = None  # If None, use all encodable strings, i.e., len(encoding).
 DROPOUT = 0.2  # At LSTM output
