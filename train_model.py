@@ -380,7 +380,7 @@ def get_data(
 
 def make_data_loaders(
     data: torch.utils.data.Dataset,
-    batch_size: int,
+    batch_size: int | tuple,
     pct_tr: float,
     seed_split: int = None,
     seed_loader: int = None,
@@ -389,7 +389,7 @@ def make_data_loaders(
 
     Args:
         data: Torch dataset.
-        batch_size: Batch size.
+        batch_size: Batch size. If tuple, (batch_size_train, batch_size_validation).
         pct_tr: Percent of data for training set.
         seed_split: Random seed for splitting to train-validation. Defaults to None.
         seed_loader: Random seed for train loader. Defaults to None.
@@ -397,7 +397,8 @@ def make_data_loaders(
     Returns:
         tuple of torch DataLoaders
     """
-    batch_size_validation = 10000
+    if len(batch_size) > 1:
+        batch_size_train, batch_size_validation = batch_size
     data_tr, data_va = random_split(
         data,
         lengths=(pct_tr, 1 - pct_tr),
@@ -405,7 +406,7 @@ def make_data_loaders(
     )
     train_loader = DataLoader(
         data_tr,
-        batch_size=batch_size,
+        batch_size=batch_size_train,
         shuffle=True,
         generator=torch.Generator().manual_seed(seed_loader),
     )
@@ -508,9 +509,10 @@ if __name__ == "__main__":
         encoding=encoding,
         size=DATA_SIZE,
     )
+    BATCH_SIZE_VALIDATION = 10000
     train_loader, validation_loader = make_data_loaders(
         data,
-        batch_size=BATCH_SIZE,
+        batch_size=(BATCH_SIZE, BATCH_SIZE_VALIDATION),
         pct_tr=PCT_TR,
         seed_split=SEED_SPLIT,
         seed_loader=SEED_LOADER,
