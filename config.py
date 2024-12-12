@@ -10,8 +10,8 @@ TOKENS = {"rest": "R", "hold": "H", "end": "E"}
 # Training
 PCT_TR = 0.8
 LEARNING_RATE = 0.001
-BATCH_SIZE = 16
-NUM_EPOCHS = 100
+BATCH_SIZE = 32
+NUM_EPOCHS = 50
 DATA_SIZE = None  # If None, use all data.
 OPTIMIZER = "Adam"
 OPTIMIZER_PARAMS = {"weight_decay": 1e-5}
