@@ -29,7 +29,6 @@ class MelodyLSTM(nn.Module):
         self.embedding_size = embedding_size
         self.hidden_size = hidden_size
 
-        # The embedding is useful because the pitch space is sparse.
         # (batch_size, seq_len) -> (batch_size, seq_len, embedding_size)
         self.embedding = nn.Embedding(output_size, embedding_size)
         # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, hidden_size)
