@@ -11,9 +11,9 @@ from torch.nn.functional import softmax
 
 def generate_melody(
     model: MelodyLSTM,
-    initial_sequence: list[int],
-    num_notes: int,
-    sequence_length: int,
+    initial_sequence: list[int] = TOKENS["end"],
+    num_notes: int = 200,
+    sequence_length: int = 16,
     temperature: float = 1.0,
     random_seed: int = None,
     allowed_notes: list[int] = None,
@@ -134,7 +134,24 @@ def load_model(model_file: str | Path, model_class: object) -> tuple[object, dic
     )
     model.load_state_dict(state_dict)
     model.eval()
+    print(f"Loaded {model_file}.")
     return model, hparams
+
+
+def get_model_file(path_to_models: str | Path):
+    """Get default path to model
+
+    Returns `MODEL_FILE` env var, or if it doesn't exist, the most recently modified
+    .pth file in `path_to_models`.
+    """
+    model_file = os.getenv("MODEL_FILE", None)
+    if model_file is None:
+        # Most recently modified .pth file in models/.
+        model_file = max(
+            Path(path_to_models).glob("*.pth"),
+            key=lambda f: f.stat().st_mtime,
+        )
+    return model_file
 
 
 def make_argparser():
@@ -144,7 +161,7 @@ def make_argparser():
         "--initial_sequence",
         type=str,
         default="60",
-        help="Initial sequence as a space-delimited sequence of MIDI note numbers and rest/hold tokens. Example: '60 62 64.'. See encoding for non-number tokens.",
+        help="Initial sequence as a space-delimited sequence of MIDI note numbers and rest/hold tokens. Example: '60 62 64'. See encoding for non-number tokens.",
     )
     parser.add_argument(
         "-t",
@@ -177,6 +194,7 @@ if __name__ == "__main__":
     from datetime import datetime
     from config import PATH_TO_MODELS
     from encoder import get_encoding
+    from fractions import Fraction
 
     parser = make_argparser()
     args = parser.parse_args()
@@ -191,21 +209,14 @@ if __name__ == "__main__":
     encode = lambda seq: [encoding[e] for e in seq]
     decode = lambda seq: [decoding[e] for e in seq]
 
-    MODEL_FILE = os.getenv("MODEL_FILE", None)
-    if MODEL_FILE is None:
-        # Most recently modified .pth file in models/.
-        MODEL_FILE = max(
-            Path(PATH_TO_MODELS).glob("*.pth"),
-            key=lambda f: f.stat().st_mtime,
-        )
-    model, hparams = load_model(MODEL_FILE, MelodyLSTM)
-    print(f"Loaded {MODEL_FILE}.")
+    model_file = get_model_file(PATH_TO_MODELS)
+    model, hparams = load_model(model_file, MelodyLSTM)
 
     path_to_generated = Path("generated")
     path_to_generated.mkdir(exist_ok=True, parents=True)
 
     print(
-        f"Generating {STEPS} steps of duration {STEP_DURATION}*quarter_note with initial sequence '{INITIAL_SEQUENCE}'"
+        f"Generating {STEPS} steps of size {Fraction(STEP_DURATION*1/4)} with initial sequence '{INITIAL_SEQUENCE}'."
     )
     melody = generate_melody(
         model=model,
